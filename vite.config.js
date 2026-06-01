@@ -1,26 +1,32 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/auth': { target: 'http://localhost:5001', changeOrigin: true },
-      '/user': { target: 'http://localhost:5001', changeOrigin: true },
-      '/admin': { target: 'http://localhost:5001', changeOrigin: true },
-      '/shop': { target: 'http://localhost:5001', changeOrigin: true },
-      '/gamification': { target: 'http://localhost:5001', changeOrigin: true },
-      '/challenges': { target: 'http://localhost:5001', changeOrigin: true },
-      '/config': { target: 'http://localhost:5001', changeOrigin: true },
-      '/notification': { target: 'http://localhost:5001', changeOrigin: true },
-      '/health': { target: 'http://localhost:5001', changeOrigin: true },
-      '/nutrition': { target: 'http://localhost:5001', changeOrigin: true },
-      '/referral': { target: 'http://localhost:5001', changeOrigin: true },
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  const apiTarget = env.VITE_API_ENDPOINT || 'http://localhost:5001';
+
+  return {
+    plugins: [react()],
+    server: {
+      port: 5173,
+      proxy: {
+        '/auth': { target: apiTarget, changeOrigin: true },
+        '/user': { target: apiTarget, changeOrigin: true },
+        '/admin': { target: apiTarget, changeOrigin: true },
+        '/shop': { target: apiTarget, changeOrigin: true },
+        '/gamification': { target: apiTarget, changeOrigin: true },
+        '/challenges': { target: apiTarget, changeOrigin: true },
+        '/config': { target: apiTarget, changeOrigin: true },
+        '/notification': { target: apiTarget, changeOrigin: true },
+        '/health': { target: apiTarget, changeOrigin: true },
+        '/nutrition': { target: apiTarget, changeOrigin: true },
+        '/referral': { target: apiTarget, changeOrigin: true },
+      },
     },
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-  },
+    build: {
+      outDir: 'dist',
+      sourcemap: false,
+    },
+  };
 });

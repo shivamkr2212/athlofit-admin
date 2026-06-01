@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
     // Backend response shape:
     // { success: true, data: { accessToken, refreshToken, user: {...} } }
     const body = await authService.login(email, password);
+    console.log('Login response:', JSON.stringify(body, null, 2));
 
     if (!body.success) throw new Error(body.message || 'Login failed');
 

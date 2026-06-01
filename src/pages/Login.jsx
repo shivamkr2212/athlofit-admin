@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: 'admins@athlofit.com', password: 'Admin@1234' });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -16,6 +16,8 @@ export default function Login() {
     setLoading(true);
     try {
       await login(form.email, form.password);
+
+      
       toast.success('Welcome back!');
       navigate('/');
     } catch (err) {
