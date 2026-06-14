@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, Search, Star, Package } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
 import Pagination from '../components/ui/Pagination';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import EmptyState from '../components/ui/EmptyState';
+import ImageUploader from '../components/ui/ImageUploader';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -180,7 +181,7 @@ export default function Products() {
 }
 
 function ProductForm({ product, categories, onSubmit, loading }) {
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, formState: { errors } } = useForm({
     defaultValues: product ? {
       name: product.name,
       description: product.description,
@@ -191,9 +192,9 @@ function ProductForm({ product, categories, onSubmit, loading }) {
       tags: product.tags?.join(', ') || '',
       isFeatured: product.isFeatured,
       isActive: product.isActive,
-      images: product.images?.join('\n') || '',
+      images: product.images || [],
       coinReward: product.coinReward || 0,
-    } : { isActive: true, isFeatured: false, stock: 0, coinReward: 0 },
+    } : { isActive: true, isFeatured: false, stock: 0, coinReward: 0, images: [] },
   });
 
   const submit = (data) => {
@@ -204,7 +205,7 @@ function ProductForm({ product, categories, onSubmit, loading }) {
       stock: Number(data.stock),
       coinReward: Number(data.coinReward),
       tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-      images: data.images ? data.images.split('\n').map((u) => u.trim()).filter(Boolean) : [],
+      images: Array.isArray(data.images) ? data.images : [],
     };
     onSubmit(payload);
   };
@@ -244,8 +245,19 @@ function ProductForm({ product, categories, onSubmit, loading }) {
           </select>
         </div>
         <div className="col-span-2">
-          <label className="label">Image URLs (one per line)</label>
-          <textarea className="input font-mono text-xs" rows={3} placeholder="https://..." {...register('images')} />
+          <Controller
+            control={control}
+            name="images"
+            render={({ field }) => (
+              <ImageUploader
+                label="Product Images"
+                folder="products"
+                multiple
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
         </div>
         <div className="col-span-2">
           <label className="label">Tags (comma separated)</label>

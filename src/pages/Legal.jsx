@@ -3,67 +3,65 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, FileText } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
-import api from '../lib/api';
+import { configService } from '../services/config.service';
 import toast from 'react-hot-toast';
 
-async function fetchTerms() {
-  const res = await api.get('/config/terms');
-  return res.data?.data;
-}
-
-async function fetchPrivacy() {
-  const res = await api.get('/config/privacy');
-  return res.data?.data;
-}
+// All legal document types (must match backend LegalContent enum).
+const LEGAL_TYPES = [
+  { key: 'terms', label: '📄 Terms & Conditions' },
+  { key: 'privacy', label: '🔒 Privacy Policy' },
+  { key: 'coin-earning', label: '🪙 Coin Earning & Rewards' },
+  { key: 'coin-redemption', label: '🎁 Coin Redemption' },
+  { key: 'community-guidelines', label: '👥 Community Guidelines' },
+  { key: 'data-deletion', label: '🗑️ Data Deletion' },
+  { key: 'medical-disclaimer', label: '⚕️ Medical Disclaimer' },
+  { key: 'refund', label: '💳 Refund Policy' },
+];
 
 export default function Legal() {
   const qc = useQueryClient();
   const [tab, setTab] = useState('terms');
+  const [content, setContent] = useState('');
+  const [version, setVersion] = useState('');
+  const [title, setTitle] = useState('');
+  const [isPublished, setIsPublished] = useState(true);
 
-  const { data: terms, isLoading: termsLoading } = useQuery({ queryKey: ['terms'], queryFn: fetchTerms });
-  const { data: privacy, isLoading: privacyLoading } = useQuery({ queryKey: ['privacy'], queryFn: fetchPrivacy });
-
-  const [termsContent, setTermsContent] = useState('');
-  const [termsVersion, setTermsVersion] = useState('');
-  const [privacyContent, setPrivacyContent] = useState('');
-  const [privacyVersion, setPrivacyVersion] = useState('');
-
-  useEffect(() => {
-    if (terms) { setTermsContent(terms.content || ''); setTermsVersion(terms.version || ''); }
-  }, [terms]);
-
-  useEffect(() => {
-    if (privacy) { setPrivacyContent(privacy.content || ''); setPrivacyVersion(privacy.version || ''); }
-  }, [privacy]);
-
-  const termsMutation = useMutation({
-    mutationFn: () => api.put('/config/terms', { content: termsContent, version: termsVersion }),
-    onSuccess: () => { toast.success('Terms updated'); qc.invalidateQueries(['terms']); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+  const { data, isLoading } = useQuery({
+    queryKey: ['legal', tab],
+    queryFn: () => configService.getLegal(tab),
   });
 
-  const privacyMutation = useMutation({
-    mutationFn: () => api.put('/config/privacy', { content: privacyContent, version: privacyVersion }),
-    onSuccess: () => { toast.success('Privacy policy updated'); qc.invalidateQueries(['privacy']); },
+  const doc = data?.data;
+
+  useEffect(() => {
+    if (doc) {
+      setContent(doc.content || '');
+      setVersion(doc.version || '1.0');
+      setTitle(doc.title || '');
+      setIsPublished(doc.isPublished !== false);
+    }
+  }, [doc]);
+
+  const mutation = useMutation({
+    mutationFn: () => configService.updateLegal(tab, { content, version, title, isPublished }),
+    onSuccess: () => {
+      toast.success('Document saved');
+      qc.invalidateQueries(['legal', tab]);
+    },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
-
-  const isLoading = tab === 'terms' ? termsLoading : privacyLoading;
 
   return (
     <div>
-      <Header title="Legal Content" subtitle="Manage Terms & Conditions and Privacy Policy" />
+      <Header title="Legal & Policies" subtitle="Manage all legal documents shown on the website" />
       <div className="p-6 space-y-4">
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-          {[
-            { key: 'terms', label: '📄 Terms & Conditions' },
-            { key: 'privacy', label: '🔒 Privacy Policy' },
-          ].map((t) => (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl flex-wrap">
+          {LEGAL_TYPES.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -76,19 +74,24 @@ export default function Legal() {
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
         ) : (
           <div className="card p-6 space-y-4 max-w-4xl">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <label className="label">Version</label>
-                <input
-                  className="input w-32"
-                  value={tab === 'terms' ? termsVersion : privacyVersion}
-                  onChange={(e) => tab === 'terms' ? setTermsVersion(e.target.value) : setPrivacyVersion(e.target.value)}
-                  placeholder="1.0"
-                />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Title</label>
+                <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Document title" />
               </div>
-              <div className="text-xs text-gray-400 flex items-center gap-1 mt-5">
-                <FileText size={14} />
-                Supports Markdown formatting
+              <div>
+                <label className="label">Version</label>
+                <input className="input w-32" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.0" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <input type="checkbox" id="legalPublished" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} className="w-4 h-4 rounded accent-primary-600" />
+                <label htmlFor="legalPublished" className="text-sm text-gray-700">Published (visible on website)</label>
+              </div>
+              <div className="text-xs text-gray-400 flex items-center gap-1">
+                <FileText size={14} /> Supports Markdown formatting
               </div>
             </div>
 
@@ -96,20 +99,15 @@ export default function Legal() {
               <label className="label">Content (Markdown)</label>
               <textarea
                 className="input font-mono text-xs"
-                rows={24}
-                value={tab === 'terms' ? termsContent : privacyContent}
-                onChange={(e) => tab === 'terms' ? setTermsContent(e.target.value) : setPrivacyContent(e.target.value)}
-                placeholder="# Title&#10;&#10;Content here..."
+                rows={22}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="# Title&#10;&#10;Content here…"
               />
             </div>
 
-            <button
-              onClick={() => tab === 'terms' ? termsMutation.mutate() : privacyMutation.mutate()}
-              disabled={termsMutation.isPending || privacyMutation.isPending}
-              className="btn-primary"
-            >
-              <Save size={16} />
-              {termsMutation.isPending || privacyMutation.isPending ? 'Saving…' : `Save ${tab === 'terms' ? 'Terms' : 'Privacy Policy'}`}
+            <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !content} className="btn-primary">
+              <Save size={16} /> {mutation.isPending ? 'Saving…' : 'Save Document'}
             </button>
           </div>
         )}

@@ -42,6 +42,22 @@ export default function AppConfig() {
         'maintenance.message': config.maintenance?.message,
         'support.email':   config.support?.email,
         'support.website': config.support?.website,
+        'support.phone':   config.support?.phone,
+        'support.address': config.support?.address,
+        'appLinks.playStore': config.appLinks?.playStore,
+        'appLinks.appStore':  config.appLinks?.appStore,
+        'appLinks.universal': config.appLinks?.universal,
+        'appLinks.showBadges': config.appLinks?.showBadges,
+        'social.instagram': config.social?.instagram,
+        'social.twitter':   config.social?.twitter,
+        'social.facebook':  config.social?.facebook,
+        'social.youtube':   config.social?.youtube,
+        'social.linkedin':  config.social?.linkedin,
+        'website.siteName':               config.website?.siteName,
+        'website.defaultMetaTitle':       config.website?.defaultMetaTitle,
+        'website.defaultMetaDescription': config.website?.defaultMetaDescription,
+        'website.ogImage':                config.website?.ogImage,
+        'website.razorpayEnabled':        config.website?.razorpayEnabled,
       });
     }
   }, [config, reset]);
@@ -136,7 +152,41 @@ export default function AppConfig() {
             <div className="grid grid-cols-2 gap-4">
               <Field label="Support Email" name="support.email" type="email" register={register} />
               <Field label="Support Website" name="support.website" register={register} />
+              <Field label="Support Phone" name="support.phone" register={register} />
+              <Field label="Support Address" name="support.address" register={register} />
             </div>
+          </Section>
+
+          {/* App Download Links */}
+          <Section title="📲 App Download Links (Website)">
+            <div className="grid grid-cols-1 gap-4">
+              <Field label="Google Play URL" name="appLinks.playStore" register={register} />
+              <Field label="App Store URL" name="appLinks.appStore" register={register} />
+              <Field label="Universal / Deep Link (optional)" name="appLinks.universal" register={register} />
+            </div>
+            <Toggle label="Show download badges on website" name="appLinks.showBadges" register={register} />
+          </Section>
+
+          {/* Social Links */}
+          <Section title="🌐 Social Media Links">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Instagram" name="social.instagram" register={register} />
+              <Field label="Twitter / X" name="social.twitter" register={register} />
+              <Field label="Facebook" name="social.facebook" register={register} />
+              <Field label="YouTube" name="social.youtube" register={register} />
+              <Field label="LinkedIn" name="social.linkedin" register={register} />
+            </div>
+          </Section>
+
+          {/* Website SEO + Payments */}
+          <Section title="🔍 Website SEO & Payments">
+            <div className="grid grid-cols-1 gap-4">
+              <Field label="Site Name" name="website.siteName" register={register} />
+              <Field label="Default Meta Title" name="website.defaultMetaTitle" register={register} />
+              <Field label="Default Meta Description" name="website.defaultMetaDescription" register={register} />
+              <Field label="Default OG Image URL" name="website.ogImage" register={register} />
+            </div>
+            <Toggle label="Enable Razorpay checkout on website" name="website.razorpayEnabled" register={register} />
           </Section>
 
           <button type="submit" disabled={updateMutation.isPending} className="btn-primary px-8 py-2.5">

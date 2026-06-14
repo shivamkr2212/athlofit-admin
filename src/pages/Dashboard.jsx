@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   Users, ShoppingBag, Package, Coins, TrendingUp, Activity,
-  Trophy, Zap, UserCheck, AlertCircle,
+  Trophy, Zap, UserCheck, AlertCircle, ArrowUpRight,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -30,6 +31,7 @@ async function fetchDashboardData() {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: fetchDashboardData,
@@ -67,6 +69,7 @@ export default function Dashboard() {
             subtitle="Registered accounts"
             icon={Users}
             color="blue"
+            to="/users"
           />
           <StatCard
             title="Total Orders"
@@ -74,6 +77,7 @@ export default function Dashboard() {
             subtitle="All time orders"
             icon={Package}
             color="green"
+            to="/orders"
           />
           <StatCard
             title="Top Coins Balance"
@@ -81,6 +85,7 @@ export default function Dashboard() {
             subtitle="Leaderboard #1"
             icon={Trophy}
             color="yellow"
+            to="/gamification"
           />
           <StatCard
             title="Active Streaks"
@@ -88,13 +93,17 @@ export default function Dashboard() {
             subtitle="Users with active streaks"
             icon={Zap}
             color="purple"
+            to="/gamification"
           />
         </div>
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">User Signups (Last 7 Days)</h3>
+            <button onClick={() => navigate('/users')} className="flex items-center gap-1 font-semibold text-gray-900 mb-4 hover:text-primary-600 transition-colors group">
+              User Signups (Last 7 Days)
+              <ArrowUpRight size={14} className="text-gray-300 group-hover:text-primary-600" />
+            </button>
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={signupData}>
                 <defs>
@@ -113,7 +122,10 @@ export default function Dashboard() {
           </div>
 
           <div className="card p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Orders (Last 6 Months)</h3>
+            <button onClick={() => navigate('/orders')} className="flex items-center gap-1 font-semibold text-gray-900 mb-4 hover:text-primary-600 transition-colors group">
+              Orders (Last 6 Months)
+              <ArrowUpRight size={14} className="text-gray-300 group-hover:text-primary-600" />
+            </button>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={orderData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -146,7 +158,12 @@ export default function Dashboard() {
 
           {/* Leaderboard */}
           <div className="card p-5 lg:col-span-2">
-            <h3 className="font-semibold text-gray-900 mb-4">🏆 Top Users by Coins</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">🏆 Top Users by Coins</h3>
+              <button onClick={() => navigate('/gamification')} className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors">
+                View all <ArrowUpRight size={13} />
+              </button>
+            </div>
             {isLoading ? (
               <div className="flex justify-center py-8"><Spinner /></div>
             ) : leaderboard.length === 0 ? (

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ShoppingBag, Tag, Ticket, Trophy,
   Zap, Bell, Settings, HelpCircle, FileText, LogOut, ChevronLeft,
-  ChevronRight, Dumbbell, Package,
+  ChevronRight, Dumbbell, Package, BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -17,6 +17,8 @@ const NAV = [
   { divider: true, label: 'Fitness' },
   { label: 'Challenges',    to: '/challenges',      icon: Dumbbell },
   { label: 'Gamification',  to: '/gamification',    icon: Trophy },
+  { divider: true, label: 'Content' },
+  { label: 'Blog',          to: '/blogs',           icon: BookOpen },
   { divider: true, label: 'System' },
   { label: 'Notifications', to: '/notifications',   icon: Bell },
   { label: 'Support',       to: '/support',         icon: HelpCircle },

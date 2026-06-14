@@ -28,6 +28,20 @@ export const configService = {
     return res.data;
   },
 
+  // ── Generic legal documents (all policy types) ──────────────────────────────
+  getLegalList: async () => {
+    const res = await api.get('/config/legal');
+    return res.data;
+  },
+  getLegal: async (type) => {
+    const res = await api.get(`/config/legal/${type}`);
+    return res.data;
+  },
+  updateLegal: async (type, data) => {
+    const res = await api.put(`/config/legal/${type}`, data);
+    return res.data;
+  },
+
   getFaqs: async () => {
     const res = await api.get('/config/faqs');
     return res.data;
