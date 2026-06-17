@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
-      port: 5173,
+      port: 3002,
       proxy: {
         '/auth': { target: apiTarget, changeOrigin: true },
         '/user': { target: apiTarget, changeOrigin: true },
