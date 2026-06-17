@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, FileText } from 'lucide-react';
+import MDEditor from '@uiw/react-md-editor';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
 import { configService } from '../services/config.service';
@@ -97,13 +98,17 @@ export default function Legal() {
 
             <div>
               <label className="label">Content (Markdown)</label>
-              <textarea
-                className="input font-mono text-xs"
-                rows={22}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="# Title&#10;&#10;Content here…"
-              />
+              <div data-color-mode="light">
+                <MDEditor
+                  value={content}
+                  onChange={(val) => setContent(val || '')}
+                  height={500}
+                  preview="live"
+                  textareaProps={{
+                    placeholder: '# Title\n\nContent here…',
+                  }}
+                />
+              </div>
             </div>
 
             <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !content} className="btn-primary">
