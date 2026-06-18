@@ -2,10 +2,18 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, FileText } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
+import TurndownService from 'turndown';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
 import { configService } from '../services/config.service';
 import toast from 'react-hot-toast';
+
+// Converts pasted rich-text/HTML (e.g. from a PDF or Word) into Markdown.
+const turndown = new TurndownService({
+  headingStyle: 'atx',
+  bulletListMarker: '-',
+  codeBlockStyle: 'fenced',
+});
 
 // All legal document types (must match backend LegalContent enum).
 const LEGAL_TYPES = [
@@ -51,6 +59,23 @@ export default function Legal() {
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
+
+  // Intercept paste: if the clipboard holds rich text/HTML (from a PDF, Word, web
+  // page, etc.) convert it to Markdown so formatting like headings, bold and lists
+  // is preserved instead of being flattened into a plain paragraph.
+  const handlePaste = (e) => {
+    const html = e.clipboardData?.getData('text/html');
+    if (!html) return; // plain-text paste — let the editor handle it normally
+
+    e.preventDefault();
+    const markdown = turndown.turndown(html).trim();
+
+    const textarea = e.target;
+    const start = textarea.selectionStart ?? content.length;
+    const end = textarea.selectionEnd ?? content.length;
+    const next = content.slice(0, start) + markdown + content.slice(end);
+    setContent(next);
+  };
 
   return (
     <div>
@@ -106,6 +131,7 @@ export default function Legal() {
                   preview="live"
                   textareaProps={{
                     placeholder: '# Title\n\nContent here…',
+                    onPaste: handlePaste,
                   }}
                 />
               </div>
