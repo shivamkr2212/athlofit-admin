@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Eye, Trash2, Shield, User, CheckCircle, XCircle, Filter } from 'lucide-react';
+import {
+  Search, Eye, Trash2, Shield, User, CheckCircle, XCircle, Filter,
+  Footprints, Flame, Droplets, Trophy, Award, Coins, Package, Activity, Target,
+} from 'lucide-react';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
 import Pagination from '../components/ui/Pagination';
@@ -20,14 +23,18 @@ async function fetchUsers({ page, limit, search, role }) {
 }
 
 async function fetchUserDetail(id) {
-  const [profileRes, gamRes, ordersRes] = await Promise.allSettled([
+  const [profileRes, gamRes, healthRes, achRes, ordersRes] = await Promise.allSettled([
     api.get(`/admin/users/${id}`),
     api.get(`/admin/users/${id}/gamification`),
+    api.get(`/admin/users/${id}/health`),
+    api.get(`/admin/users/${id}/achievements`),
     api.get(`/admin/users/${id}/orders`),
   ]);
   return {
     profile: profileRes.status === 'fulfilled' ? profileRes.value.data?.data : null,
     gamification: gamRes.status === 'fulfilled' ? gamRes.value.data?.data : null,
+    health: healthRes.status === 'fulfilled' ? healthRes.value.data?.data : null,
+    achievements: achRes.status === 'fulfilled' ? achRes.value.data?.data : null,
     orders: ordersRes.status === 'fulfilled' ? ordersRes.value.data?.data : null,
   };
 }
@@ -197,7 +204,7 @@ export default function Users() {
       </div>
 
       {/* User Detail Modal */}
-      <Modal open={!!selectedUser} onClose={() => setSelectedUser(null)} title="User Details" size="lg">
+      <Modal open={!!selectedUser} onClose={() => setSelectedUser(null)} title="User Details" size="xl">
         {detailLoading ? (
           <div className="flex justify-center py-8"><Spinner /></div>
         ) : userDetail ? (
@@ -219,12 +226,21 @@ export default function Users() {
 }
 
 function UserDetailView({ user, detail }) {
-  const { profile, gamification, orders } = detail;
+  const { profile, gamification, health, achievements, orders } = detail;
   const u = profile || user;
+  const [tab, setTab] = useState('profile');
+
+  const TABS = [
+    { key: 'profile', label: 'Profile', icon: User },
+    { key: 'activity', label: 'Steps & Activity', icon: Footprints },
+    { key: 'gamification', label: 'Coins & Badges', icon: Trophy },
+    { key: 'achievements', label: 'Achievements', icon: Award },
+    { key: 'orders', label: 'Orders', icon: Package },
+  ];
 
   return (
     <div className="space-y-5">
-      {/* Profile */}
+      {/* Profile header */}
       <div className="flex items-center gap-4">
         {u.avatarUrl ? (
           <img src={u.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
@@ -243,67 +259,262 @@ function UserDetailView({ user, detail }) {
         </div>
       </div>
 
-      {/* Info Grid */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Quick stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <QuickStat icon={Footprints} color="blue" label="Total Steps" value={(health?.summary?.totalSteps || 0).toLocaleString()} />
+        <QuickStat icon={Coins} color="yellow" label="Coin Balance" value={(gamification?.coinsBalance || 0).toLocaleString()} />
+        <QuickStat icon={Activity} color="green" label="Current Streak" value={`${gamification?.streakDays || 0}d`} />
+        <QuickStat icon={Package} color="purple" label="Orders" value={orders?.length || 0} />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                tab === t.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Icon size={14} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      {tab === 'profile' && <ProfileTab u={u} />}
+      {tab === 'activity' && <ActivityTab health={health} stepGoal={u.dailyStepGoal} />}
+      {tab === 'gamification' && <GamificationTab gamification={gamification} />}
+      {tab === 'achievements' && <AchievementsTab achievements={achievements} />}
+      {tab === 'orders' && <OrdersTab orders={orders} />}
+    </div>
+  );
+}
+
+function QuickStat({ icon: Icon, color, label, value }) {
+  const colors = {
+    blue: 'bg-blue-50 text-blue-600',
+    yellow: 'bg-yellow-50 text-yellow-600',
+    green: 'bg-green-50 text-green-600',
+    purple: 'bg-purple-50 text-purple-600',
+  };
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl p-3">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${colors[color]}`}>
+        <Icon size={16} />
+      </div>
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className="text-lg font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function ProfileTab({ u }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {[
+        ['Phone', u.phone || '—'],
+        ['Gender', u.gender || '—'],
+        ['Age', u.age ? `${u.age} yrs` : '—'],
+        ['Height', u.height ? `${u.height} cm` : '—'],
+        ['Weight', u.weight ? `${u.weight} kg` : '—'],
+        ['Blood Type', u.bloodType || '—'],
+        ['Daily Step Goal', u.dailyStepGoal?.toLocaleString() || '10,000'],
+        ['Provider', u.provider || 'email'],
+        ['Phone Verified', u.phoneVerified ? 'Yes' : 'No'],
+        ['Profile Complete', u.isProfileCompleted ? 'Yes' : 'No'],
+        ['Referral Code', u.referralCode || '—'],
+        ['Joined', u.createdAt ? format(new Date(u.createdAt), 'MMM d, yyyy') : '—'],
+      ].map(([k, v]) => (
+        <div key={k} className="bg-gray-50 rounded-lg p-3">
+          <p className="text-xs text-gray-400">{k}</p>
+          <p className="text-sm font-medium text-gray-800 mt-0.5">{v}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActivityTab({ health, stepGoal }) {
+  const days = health?.days || [];
+  const summary = health?.summary;
+
+  if (!days.length) {
+    return <p className="text-sm text-gray-400 text-center py-8">No activity data recorded yet.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      {summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <SummaryCard icon={Footprints} label="Lifetime Steps" value={summary.totalSteps?.toLocaleString()} sub={`${summary.daysTracked} days tracked`} />
+          <SummaryCard icon={Coins} label="Step Coins Earned" value={summary.totalStepCoins?.toLocaleString()} sub={`${summary.ratePer100Steps}/100 steps`} />
+          <SummaryCard icon={Target} label="Goals Met" value={`${summary.goalsMet}/${summary.daysTracked}`} sub="days hit goal" />
+          <SummaryCard icon={Flame} label="Calories" value={Math.round(summary.totalCalories || 0).toLocaleString()} sub="lifetime kcal" />
+          <SummaryCard icon={Activity} label="Distance" value={`${(summary.totalDistance || 0).toFixed(1)} km`} sub="lifetime" />
+          <SummaryCard icon={Droplets} label="Hydration" value={`${(summary.totalHydration || 0).toLocaleString()} ml`} sub="lifetime" />
+        </div>
+      )}
+
+      {/* Daily breakdown table */}
+      <div className="border border-gray-100 rounded-xl overflow-hidden">
+        <div className="max-h-72 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium text-gray-500 text-xs">Date</th>
+                <th className="text-right px-3 py-2 font-medium text-gray-500 text-xs">Steps</th>
+                <th className="text-right px-3 py-2 font-medium text-gray-500 text-xs">Coins</th>
+                <th className="text-right px-3 py-2 font-medium text-gray-500 text-xs">Kcal</th>
+                <th className="text-right px-3 py-2 font-medium text-gray-500 text-xs">Water</th>
+                <th className="text-center px-3 py-2 font-medium text-gray-500 text-xs">Goal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {days.map((d) => (
+                <tr key={d._id || d.date} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 text-gray-700">{d.date}</td>
+                  <td className="px-3 py-2 text-right font-medium text-gray-900">{d.steps?.toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right text-yellow-600 font-medium">🪙 {d.stepCoins}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">{Math.round(d.calories || 0)}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">{d.hydration || 0}ml</td>
+                  <td className="px-3 py-2 text-center">
+                    {d.goalMet ? <CheckCircle size={14} className="text-green-500 inline" /> : <XCircle size={14} className="text-gray-300 inline" />}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400">Step goal: {stepGoal?.toLocaleString() || '10,000'} steps/day · showing last {days.length} days</p>
+    </div>
+  );
+}
+
+function SummaryCard({ icon: Icon, label, value, sub }) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon size={14} className="text-gray-400" />
+        <p className="text-xs text-gray-400">{label}</p>
+      </div>
+      <p className="text-base font-bold text-gray-900">{value}</p>
+      {sub && <p className="text-[11px] text-gray-400">{sub}</p>}
+    </div>
+  );
+}
+
+function GamificationTab({ gamification }) {
+  if (!gamification) {
+    return <p className="text-sm text-gray-400 text-center py-8">No gamification record.</p>;
+  }
+  const badges = gamification.badges || [];
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          ['Phone', u.phone || '—'],
-          ['Gender', u.gender || '—'],
-          ['Age', u.age ? `${u.age} yrs` : '—'],
-          ['Height', u.height ? `${u.height} cm` : '—'],
-          ['Weight', u.weight ? `${u.weight} kg` : '—'],
-          ['Blood Type', u.bloodType || '—'],
-          ['Step Goal', u.dailyStepGoal?.toLocaleString() || '10,000'],
-          ['Provider', u.provider || 'email'],
-          ['Profile Complete', u.isProfileCompleted ? 'Yes' : 'No'],
-          ['Joined', u.createdAt ? format(new Date(u.createdAt), 'MMM d, yyyy') : '—'],
+          ['Coins', gamification.coinsBalance?.toLocaleString() || 0],
+          ['Earned Today', gamification.coinsEarnedToday?.toLocaleString() || 0],
+          ['Streak', `${gamification.streakDays || 0} days`],
+          ['Best Streak', `${gamification.bestStreakDays || 0} days`],
         ].map(([k, v]) => (
-          <div key={k} className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-400">{k}</p>
-            <p className="text-sm font-medium text-gray-800 mt-0.5">{v}</p>
+          <div key={k} className="bg-yellow-50 rounded-lg p-3 text-center">
+            <p className="text-xs text-yellow-600">{k}</p>
+            <p className="text-lg font-bold text-yellow-700">{v}</p>
           </div>
         ))}
       </div>
 
-      {/* Gamification */}
-      {gamification && (
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Gamification</h4>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              ['Coins', gamification.coinsBalance?.toLocaleString()],
-              ['Streak', `${gamification.streakDays} days`],
-              ['Best Streak', `${gamification.bestStreakDays} days`],
-            ].map(([k, v]) => (
-              <div key={k} className="bg-yellow-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-yellow-600">{k}</p>
-                <p className="text-lg font-bold text-yellow-700">{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent Orders */}
-      {orders?.orders?.length > 0 && (
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Recent Orders</h4>
-          <div className="space-y-2">
-            {orders.orders.slice(0, 3).map((o) => (
-              <div key={o._id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">#{o._id.slice(-6).toUpperCase()}</p>
-                  <p className="text-xs text-gray-400">{o.items?.length} item(s) · {o.totalCoins} coins</p>
+      <div>
+        <h4 className="font-semibold text-gray-700 mb-2 text-sm">Badges</h4>
+        {badges.length === 0 ? (
+          <p className="text-sm text-gray-400">No badges defined.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {badges.map((b) => (
+              <div key={b.key} className={`flex items-center gap-2 rounded-lg p-2.5 border ${b.unlocked ? 'bg-white border-yellow-200' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
+                <span className="text-xl">{b.emoji || '🏅'}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{b.title || b.key}</p>
+                  <p className="text-[11px] text-gray-400">{b.unlocked ? 'Unlocked' : `${b.threshold ?? '?'}-day streak`}</p>
                 </div>
-                <span className={`badge ${
-                  o.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
-                  o.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
-                  'bg-blue-100 text-blue-700'
-                }`}>{o.status}</span>
               </div>
             ))}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AchievementsTab({ achievements }) {
+  if (!achievements?.length) {
+    return <p className="text-sm text-gray-400 text-center py-8">No achievements defined.</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {achievements.map((a) => (
+        <div key={a._id} className="border border-gray-100 rounded-xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Award size={16} className={a.achieved ? 'text-yellow-500' : 'text-gray-300'} />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{a.title}</p>
+                <p className="text-xs text-gray-400">{a.description}</p>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-xs font-bold text-yellow-600">+{a.reward} 🪙</p>
+              {a.claimed ? (
+                <span className="badge bg-green-100 text-green-700 text-[10px]">Claimed</span>
+              ) : a.achieved ? (
+                <span className="badge bg-blue-100 text-blue-700 text-[10px]">Unclaimed</span>
+              ) : (
+                <span className="badge bg-gray-100 text-gray-500 text-[10px]">Locked</span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${a.achieved ? 'bg-green-500' : 'bg-primary-500'}`} style={{ width: `${a.progress}%` }} />
+            </div>
+            <span className="text-[11px] text-gray-400 shrink-0">{a.current?.toLocaleString()}/{a.targetValue?.toLocaleString()}</span>
+          </div>
         </div>
-      )}
+      ))}
+    </div>
+  );
+}
+
+function OrdersTab({ orders }) {
+  if (!orders?.length) {
+    return <p className="text-sm text-gray-400 text-center py-8">No orders placed yet.</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {orders.map((o) => (
+        <div key={o._id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+          <div>
+            <p className="text-sm font-medium text-gray-800">#{o._id.slice(-6).toUpperCase()}</p>
+            <p className="text-xs text-gray-400">
+              {o.items?.length} item(s) · {o.paymentMethod === 'COIN_PURCHASE' ? `🪙 ${o.totalCoins}` : `₹${o.totalPrice}`}
+              {o.createdAt ? ` · ${format(new Date(o.createdAt), 'MMM d, yyyy')}` : ''}
+            </p>
+          </div>
+          <span className={`badge ${
+            o.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+            o.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
+            o.status === 'SHIPPED' ? 'bg-indigo-100 text-indigo-700' :
+            'bg-blue-100 text-blue-700'
+          }`}>{o.status}</span>
+        </div>
+      ))}
     </div>
   );
 }

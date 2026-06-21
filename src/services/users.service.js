@@ -35,6 +35,11 @@ export const usersService = {
     return res.data;
   },
 
+  getUserAchievements: async (id) => {
+    const res = await api.get(`/admin/users/${id}/achievements`);
+    return res.data;
+  },
+
   getUserOrders: async (id) => {
     const res = await api.get(`/admin/users/${id}/orders`);
     return res.data;
