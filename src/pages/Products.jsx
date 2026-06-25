@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Search, Star, Package } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Star, Package, X, Layers } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
@@ -194,10 +194,21 @@ function ProductForm({ product, categories, onSubmit, loading }) {
       isActive: product.isActive,
       images: product.images || [],
       coinReward: product.coinReward || 0,
-    } : { isActive: true, isFeatured: false, stock: 0, coinReward: 0, images: [] },
+      variants: product.variants || [],
+    } : { isActive: true, isFeatured: false, stock: 0, coinReward: 0, images: [], variants: [] },
   });
 
   const submit = (data) => {
+    const variants = (data.variants || [])
+      .map((v) => ({
+        size: v.size || '',
+        color: v.color || '',
+        stock: Number(v.stock) || 0,
+        sku: v.sku || '',
+        priceOverride: v.priceOverride ? Number(v.priceOverride) : null,
+      }))
+      .filter((v) => v.size || v.color || v.stock || v.sku);
+
     const payload = {
       ...data,
       price: Number(data.price),
@@ -206,6 +217,7 @@ function ProductForm({ product, categories, onSubmit, loading }) {
       coinReward: Number(data.coinReward),
       tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
       images: Array.isArray(data.images) ? data.images : [],
+      variants,
     };
     onSubmit(payload);
   };
@@ -263,6 +275,15 @@ function ProductForm({ product, categories, onSubmit, loading }) {
           <label className="label">Tags (comma separated)</label>
           <input className="input" placeholder="protein, supplement, fitness" {...register('tags')} />
         </div>
+        <div className="col-span-2">
+          <Controller
+            control={control}
+            name="variants"
+            render={({ field }) => (
+              <VariantsEditor value={field.value || []} onChange={field.onChange} />
+            )}
+          />
+        </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" id="isFeatured" {...register('isFeatured')} className="rounded" />
           <label htmlFor="isFeatured" className="text-sm text-gray-700">Featured product</label>
@@ -278,5 +299,67 @@ function ProductForm({ product, categories, onSubmit, loading }) {
         </button>
       </div>
     </form>
+  );
+}
+
+const SIZE_OPTIONS = ['', 'S', 'M', 'L', 'XL', 'XXL'];
+const COLOR_PRESETS = ['black', 'white', 'red', 'green', 'yellow'];
+
+function VariantsEditor({ value, onChange }) {
+  const variants = Array.isArray(value) ? value : [];
+
+  const addRow = () => onChange([...variants, { size: '', color: '', stock: 0, sku: '', priceOverride: '' }]);
+  const updateRow = (idx, field, val) =>
+    onChange(variants.map((v, i) => (i === idx ? { ...v, [field]: val } : v)));
+  const removeRow = (idx) => onChange(variants.filter((_, i) => i !== idx));
+
+  const totalStock = variants.reduce((s, v) => s + (Number(v.stock) || 0), 0);
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <label className="label mb-0 flex items-center gap-1.5"><Layers size={14} /> Variants (size / colour)</label>
+        {variants.length > 0 && <span className="text-xs text-gray-400">Total stock: {totalStock}</span>}
+      </div>
+      <p className="text-xs text-gray-400 mb-3">
+        Add variants if this product comes in sizes/colours. Stock is tracked per variant and the
+        product&apos;s total stock is the sum. Leave empty for a simple product (uses the Stock field above).
+      </p>
+
+      {variants.length > 0 && (
+        <div className="space-y-2 mb-3">
+          <div className="grid grid-cols-[90px_1fr_80px_1fr_90px_32px] gap-2 text-[11px] text-gray-400 font-medium px-1">
+            <span>Size</span><span>Colour</span><span>Stock</span><span>SKU</span><span>₹ Override</span><span />
+          </div>
+          {variants.map((v, idx) => (
+            <div key={idx} className="grid grid-cols-[90px_1fr_80px_1fr_90px_32px] gap-2 items-center">
+              <select className="input py-1.5 text-sm" value={v.size || ''} onChange={(e) => updateRow(idx, 'size', e.target.value)}>
+                {SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s || '—'}</option>)}
+              </select>
+              <input
+                className="input py-1.5 text-sm"
+                list={`colors-${idx}`}
+                placeholder="colour or custom"
+                value={v.color || ''}
+                onChange={(e) => updateRow(idx, 'color', e.target.value)}
+              />
+              <datalist id={`colors-${idx}`}>
+                {COLOR_PRESETS.map((c) => <option key={c} value={c} />)}
+              </datalist>
+              <input type="number" min="0" className="input py-1.5 text-sm" value={v.stock ?? 0} onChange={(e) => updateRow(idx, 'stock', e.target.value)} />
+              <input className="input py-1.5 text-sm" placeholder="optional" value={v.sku || ''} onChange={(e) => updateRow(idx, 'sku', e.target.value)} />
+              <input type="number" min="0" className="input py-1.5 text-sm" placeholder="—" value={v.priceOverride ?? ''} onChange={(e) => updateRow(idx, 'priceOverride', e.target.value)} />
+              <button type="button" onClick={() => removeRow(idx)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
+                <X size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button type="button" onClick={addRow} className="btn-secondary text-xs py-1.5">
+        <Plus size={14} /> Add Variant
+      </button>
+    </div>
   );
 }

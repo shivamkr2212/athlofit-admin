@@ -33,6 +33,16 @@ export default function AppConfig() {
         'rewards.stepGoalCoins':      config.rewards?.stepGoalCoins,
         'rewards.hydrationGoalCoins': config.rewards?.hydrationGoalCoins,
         'rewards.hydrationGoalMl':    config.rewards?.hydrationGoalMl,
+        'coin_config.steps.rate_per_100_steps':                  config.coin_config?.steps?.rate_per_100_steps,
+        'coin_config.rewards.daily_step_goal_reached.enabled':    config.coin_config?.rewards?.daily_step_goal_reached?.enabled,
+        'coin_config.rewards.daily_step_goal_reached.coin_value': config.coin_config?.rewards?.daily_step_goal_reached?.coin_value,
+        'streak.freezeEarnEvery':     config.streak?.freezeEarnEvery,
+        'streak.maxFreezes':          config.streak?.maxFreezes,
+        'streak.freezeGraceHours':    config.streak?.freezeGraceHours,
+        'streak.lifeEarnIntervalDays': config.streak?.lifeEarnIntervalDays,
+        'streak.maxLives':            config.streak?.maxLives,
+        'streak.restoreCostCoins':    config.streak?.restoreCostCoins,
+        'streak.restoreWindowHours':  config.streak?.restoreWindowHours,
         'features.shopEnabled':            config.features?.shopEnabled,
         'features.ordersEnabled':          config.features?.ordersEnabled,
         'features.healthAnalyticsEnabled': config.features?.healthAnalyticsEnabled,
@@ -64,6 +74,19 @@ export default function AppConfig() {
 
   const updateMutation = useMutation({
     mutationFn: (data) => {
+      // Coerce numeric fields that the backend validates strictly.
+      const numericKeys = [
+        'coin_config.steps.rate_per_100_steps',
+        'coin_config.rewards.daily_step_goal_reached.coin_value',
+        'streak.freezeEarnEvery', 'streak.maxFreezes', 'streak.freezeGraceHours',
+        'streak.lifeEarnIntervalDays', 'streak.maxLives', 'streak.restoreCostCoins',
+        'streak.restoreWindowHours',
+      ];
+      for (const k of numericKeys) {
+        if (data[k] !== undefined && data[k] !== '' && data[k] !== null) {
+          data[k] = Number(data[k]);
+        }
+      }
       // Convert flat keys to nested object
       const nested = {};
       for (const [key, value] of Object.entries(data)) {
@@ -125,6 +148,55 @@ export default function AppConfig() {
               <Field label="Hydration Goal Coins" name="rewards.hydrationGoalCoins" type="number" register={register} />
               <Field label="Hydration Goal (ml)" name="rewards.hydrationGoalMl" type="number" register={register} />
             </div>
+          </Section>
+
+          {/* Step Coin Control */}
+          <Section title="🪙👟 Step → Coin Control">
+            <p className="text-xs text-gray-500 -mt-1">
+              Controls how many coins users earn from steps. All values are stored in the database (admin-controlled, not .env).
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label="Coins per 100 steps (passive, ≤ 1.0)"
+                name="coin_config.steps.rate_per_100_steps"
+                type="number"
+                register={register}
+              />
+              <Field
+                label="Daily Step-Goal Reward (coins)"
+                name="coin_config.rewards.daily_step_goal_reached.coin_value"
+                type="number"
+                register={register}
+              />
+            </div>
+            <Toggle
+              label="Daily step-goal reward enabled"
+              name="coin_config.rewards.daily_step_goal_reached.enabled"
+              register={register}
+            />
+            <p className="text-xs text-gray-400">
+              Example: 0.5 coins / 100 steps → 10,000 steps = 50 passive coins. The daily step-goal
+              reward is a one-time bonus when the user hits their goal.
+            </p>
+          </Section>
+
+          {/* Streak Protection */}
+          <Section title="🔥 Streak Protection System">
+            <p className="text-xs text-gray-500 -mt-1">
+              Configure freezes (24hr grace), weekly lives (auto-repair), and paid restore.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Freeze earned every N streak days" name="streak.freezeEarnEvery" type="number" register={register} />
+              <Field label="Max stored freezes" name="streak.maxFreezes" type="number" register={register} />
+              <Field label="Freeze grace period (hours)" name="streak.freezeGraceHours" type="number" register={register} />
+              <Field label="Life earned every N days" name="streak.lifeEarnIntervalDays" type="number" register={register} />
+              <Field label="Max stored lives" name="streak.maxLives" type="number" register={register} />
+              <Field label="Restore cost (coins)" name="streak.restoreCostCoins" type="number" register={register} />
+              <Field label="Restore window (hours)" name="streak.restoreWindowHours" type="number" register={register} />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Freeze = 1 free miss forgiven. Life = auto-repairs a break. Restore = user pays coins.
+            </p>
           </Section>
 
           {/* Features */}
