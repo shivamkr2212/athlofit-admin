@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { Settings, Save } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
+import ImageUploader from '../components/ui/ImageUploader';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -16,7 +17,7 @@ export default function AppConfig() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useQuery({ queryKey: ['app-config'], queryFn: fetchConfig });
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, control } = useForm();
 
   useEffect(() => {
     if (config) {
@@ -67,6 +68,7 @@ export default function AppConfig() {
         'website.defaultMetaTitle':       config.website?.defaultMetaTitle,
         'website.defaultMetaDescription': config.website?.defaultMetaDescription,
         'website.ogImage':                config.website?.ogImage,
+        'website.logoUrl':                config.website?.logoUrl,
         'website.razorpayEnabled':        config.website?.razorpayEnabled,
       });
     }
@@ -257,6 +259,20 @@ export default function AppConfig() {
               <Field label="Default Meta Title" name="website.defaultMetaTitle" register={register} />
               <Field label="Default Meta Description" name="website.defaultMetaDescription" register={register} />
               <Field label="Default OG Image URL" name="website.ogImage" register={register} />
+            </div>
+            <div className="mt-4">
+              <Controller
+                control={control}
+                name="website.logoUrl"
+                render={({ field }) => (
+                  <ImageUploader
+                    label="Site Logo (shown in navbar & footer)"
+                    folder="misc"
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </div>
             <Toggle label="Enable Razorpay checkout on website" name="website.razorpayEnabled" register={register} />
           </Section>
