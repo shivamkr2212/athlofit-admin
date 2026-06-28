@@ -145,6 +145,7 @@ export default function Support() {
 function TicketDetailView({ ticket, onUpdate, loading }) {
   const [status, setStatus] = useState(ticket.status);
   const [adminNotes, setAdminNotes] = useState(ticket.adminNotes || '');
+  const [adminReply, setAdminReply] = useState('');
 
   return (
     <div className="space-y-5">
@@ -180,10 +181,22 @@ function TicketDetailView({ ticket, onUpdate, loading }) {
       </div>
 
       <div>
-        <label className="label">Admin Notes</label>
+        <label className="label">Reply to User (sent via email + push notification)</label>
         <textarea
           className="input"
           rows={3}
+          value={adminReply}
+          onChange={(e) => setAdminReply(e.target.value)}
+          placeholder="Type a response that will be emailed to the user…"
+        />
+        <p className="text-xs text-gray-400 mt-1">Leave empty to just update status without sending a reply.</p>
+      </div>
+
+      <div>
+        <label className="label">Admin Notes (internal, not sent to user)</label>
+        <textarea
+          className="input"
+          rows={2}
           value={adminNotes}
           onChange={(e) => setAdminNotes(e.target.value)}
           placeholder="Internal notes about this ticket…"
@@ -191,11 +204,11 @@ function TicketDetailView({ ticket, onUpdate, loading }) {
       </div>
 
       <button
-        onClick={() => onUpdate({ status, adminNotes })}
+        onClick={() => onUpdate({ status, adminNotes, adminReply: adminReply.trim() || undefined })}
         disabled={loading}
         className="btn-primary w-full justify-center"
       >
-        {loading ? 'Saving…' : 'Update Ticket'}
+        {loading ? 'Saving…' : adminReply.trim() ? 'Update & Send Reply' : 'Update Ticket'}
       </button>
     </div>
   );
