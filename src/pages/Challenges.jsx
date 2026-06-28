@@ -17,7 +17,7 @@ const CRITERIA_TYPES = [
 ];
 
 async function fetchChallenges() {
-  const res = await api.get('/challenges');
+  const res = await api.get('/challenges/admin/all');
   return res.data?.data || [];
 }
 
@@ -146,8 +146,11 @@ export default function Challenges() {
                   <button onClick={() => { setEditChallenge(c); setModalOpen(true); }} className="btn-secondary flex-1 justify-center py-1.5 text-xs">
                     <Edit2 size={13} /> Edit
                   </button>
-                  <button onClick={() => setDeleteTarget(c)} className="btn-danger flex-1 justify-center py-1.5 text-xs">
-                    <Trash2 size={13} /> Delete
+                  <button
+                    onClick={() => api.patch(`/challenges/${c._id}/toggle`).then(() => { toast.success(c.isActive ? 'Deactivated' : 'Activated'); qc.invalidateQueries(['challenges']); })}
+                    className={`flex-1 justify-center py-1.5 text-xs ${c.isActive ? 'btn-secondary' : 'btn-primary'}`}
+                  >
+                    {c.isActive ? 'Deactivate' : 'Activate'}
                   </button>
                 </div>
               </div>

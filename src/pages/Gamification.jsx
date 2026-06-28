@@ -32,6 +32,7 @@ export default function Gamification() {
   const [editBadge, setEditBadge] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [achievementModal, setAchievementModal] = useState(false);
+  const [editAchievement, setEditAchievement] = useState(null);
 
   const { data: badges = [], isLoading: badgesLoading } = useQuery({ queryKey: ['badges'], queryFn: fetchBadges });
   const { data: leaderboard = [], isLoading: lbLoading } = useQuery({ queryKey: ['leaderboard'], queryFn: fetchLeaderboard });
@@ -60,11 +61,14 @@ export default function Gamification() {
   });
 
   const saveAchievementMutation = useMutation({
-    mutationFn: (data) => api.post('/gamification/admin/achievements', data),
+    mutationFn: (data) => editAchievement
+      ? api.put(`/gamification/admin/achievements/${editAchievement._id}`, data)
+      : api.post('/gamification/admin/achievements', data),
     onSuccess: () => {
-      toast.success('Achievement created');
+      toast.success(editAchievement ? 'Achievement updated' : 'Achievement created');
       qc.invalidateQueries(['achievements']);
       setAchievementModal(false);
+      setEditAchievement(null);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
@@ -155,18 +159,38 @@ export default function Gamification() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {achievements.map((a) => (
-                  <div key={a._id} className="card p-4">
+                  <div key={a._id} className={`card p-4 ${a.isActive === false ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-2xl">{a.icon || '🏆'}</span>
-                      <div>
-                        <p className="font-semibold text-gray-900">{a.title}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-900">{a.title}</p>
+                          {a.isActive === false && <span className="badge bg-red-100 text-red-600 text-[10px]">Inactive</span>}
+                        </div>
                         <p className="text-xs text-gray-400">{a.criteriaType}</p>
                       </div>
                     </div>
                     <p className="text-xs text-gray-500 mb-2">{a.description}</p>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-xs mb-3">
                       <span>Target: <strong>{a.targetValue?.toLocaleString()}</strong></span>
                       <span className="font-bold text-yellow-600">🪙 {a.reward}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditAchievement(a); setAchievementModal(true); }} className="btn-secondary flex-1 justify-center py-1.5 text-xs">
+                        <Edit2 size={12} /> Edit
+                      </button>
+                      <button
+                        onClick={() => api.patch(`/gamification/admin/achievements/${a._id}/toggle`).then(() => { toast.success(a.isActive === false ? 'Activated' : 'Deactivated'); qc.invalidateQueries(['achievements']); }).catch(() => toast.error('Failed'))}
+                        className={`flex-1 justify-center py-1.5 text-xs ${a.isActive === false ? 'btn-primary' : 'btn-secondary'}`}
+                      >
+                        {a.isActive === false ? 'Activate' : 'Deactivate'}
+                      </button>
+                      <button
+                        onClick={() => { if (confirm(`Delete "${a.title}"?`)) api.delete(`/gamification/admin/achievements/${a._id}`).then(() => { toast.success('Deleted'); qc.invalidateQueries(['achievements']); }).catch(() => toast.error('Failed')); }}
+                        className="btn-danger flex-1 justify-center py-1.5 text-xs"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -232,8 +256,12 @@ export default function Gamification() {
       </Modal>
 
       {/* Achievement Modal */}
-      <Modal open={achievementModal} onClose={() => setAchievementModal(false)} title="Add Achievement">
-        <AchievementForm onSubmit={(d) => saveAchievementMutation.mutate(d)} loading={saveAchievementMutation.isPending} />
+      <Modal open={achievementModal} onClose={() => { setAchievementModal(false); setEditAchievement(null); }} title={editAchievement ? 'Edit Achievement' : 'Add Achievement'}>
+        <AchievementForm
+          achievement={editAchievement}
+          onSubmit={(d) => saveAchievementMutation.mutate(d)}
+          loading={saveAchievementMutation.isPending}
+        />
       </Modal>
 
       <ConfirmDialog
@@ -272,8 +300,18 @@ function BadgeForm({ badge, onSubmit, loading }) {
   );
 }
 
-function AchievementForm({ onSubmit, loading }) {
-  const { register, handleSubmit } = useForm();
+function AchievementForm({ achievement, onSubmit, loading }) {
+  const { register, handleSubmit } = useForm({
+    defaultValues: achievement ? {
+      key: achievement.key,
+      title: achievement.title,
+      description: achievement.description,
+      reward: achievement.reward,
+      criteriaType: achievement.criteriaType,
+      targetValue: achievement.targetValue,
+      icon: achievement.icon,
+    } : {},
+  });
   const submit = (data) => onSubmit({ ...data, targetValue: Number(data.targetValue), reward: Number(data.reward) });
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-4">
@@ -294,7 +332,7 @@ function AchievementForm({ onSubmit, loading }) {
         <div><label className="label">Reward (coins) *</label><input type="number" className="input" {...register('reward', { required: true })} /></div>
         <div><label className="label">Icon (emoji)</label><input className="input text-2xl" placeholder="🏆" {...register('icon')} /></div>
       </div>
-      <button type="submit" disabled={loading} className="btn-primary w-full justify-center">{loading ? 'Saving…' : 'Create Achievement'}</button>
+      <button type="submit" disabled={loading} className="btn-primary w-full justify-center">{loading ? 'Saving…' : achievement ? 'Update Achievement' : 'Create Achievement'}</button>
     </form>
   );
 }
