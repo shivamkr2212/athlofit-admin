@@ -117,12 +117,12 @@ export default function Legal() {
                 <label htmlFor="legalPublished" className="text-sm text-gray-700">Published (visible on website)</label>
               </div>
               <div className="text-xs text-gray-400 flex items-center gap-1">
-                <FileText size={14} /> Supports Markdown formatting
+                <FileText size={14} /> Supports Markdown + HTML formatting
               </div>
             </div>
 
             <div>
-              <label className="label">Content (Markdown)</label>
+              <label className="label">Content (Markdown + HTML)</label>
               <div data-color-mode="light">
                 <MDEditor
                   value={content}

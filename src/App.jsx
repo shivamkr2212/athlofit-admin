@@ -21,6 +21,7 @@ import AppConfig from './pages/AppConfig';
 import Legal from './pages/Legal';
 import Blogs from './pages/Blogs';
 import Nutrition from './pages/Nutrition';
+import Foods from './pages/Foods';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, user } = useAuth();
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="challenges" element={<Challenges />} />
               <Route path="gamification" element={<Gamification />} />
               <Route path="nutrition" element={<Nutrition />} />
+              <Route path="foods" element={<Foods />} />
               <Route path="blogs" element={<Blogs />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="support" element={<Support />} />

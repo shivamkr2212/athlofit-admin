@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ShoppingBag, Tag, Ticket, Trophy,
   Zap, Bell, Settings, HelpCircle, FileText, LogOut, ChevronLeft,
-  ChevronRight, Dumbbell, Package, BookOpen, Salad,
+  ChevronRight, Dumbbell, Package, BookOpen, Salad, UtensilsCrossed,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -18,6 +18,7 @@ const NAV = [
   { label: 'Challenges',    to: '/challenges',      icon: Dumbbell },
   { label: 'Gamification',  to: '/gamification',    icon: Trophy },
   { label: 'Nutrition',     to: '/nutrition',       icon: Salad },
+  { label: 'Food Catalog',  to: '/foods',           icon: UtensilsCrossed },
   { divider: true, label: 'Content' },
   { label: 'Blog',          to: '/blogs',           icon: BookOpen },
   { divider: true, label: 'System' },
