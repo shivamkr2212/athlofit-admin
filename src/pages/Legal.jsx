@@ -63,18 +63,40 @@ export default function Legal() {
   // Intercept paste: if the clipboard holds rich text/HTML (from a PDF, Word, web
   // page, etc.) convert it to Markdown so formatting like headings, bold and lists
   // is preserved instead of being flattened into a plain paragraph.
+  // Also strips PDF-style CSS blocks that macOS Preview/Word inject.
   const handlePaste = (e) => {
     const html = e.clipboardData?.getData('text/html');
-    if (!html) return; // plain-text paste — let the editor handle it normally
+    const plain = e.clipboardData?.getData('text/plain') || '';
 
-    e.preventDefault();
-    const markdown = turndown.turndown(html).trim();
+    // Detect PDF-style CSS in plain text paste (p.p1 { ... } pattern)
+    const hasCssArtifact = /p\.p\d+\s*\{[^}]+\}/i.test(plain) || /<style/i.test(plain);
 
-    const textarea = e.target;
-    const start = textarea.selectionStart ?? content.length;
-    const end = textarea.selectionEnd ?? content.length;
-    const next = content.slice(0, start) + markdown + content.slice(end);
-    setContent(next);
+    if (html) {
+      e.preventDefault();
+      // Strip <style> blocks from the HTML before converting
+      const cleanHtml = html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/\s*class="[^"]*"/gi, '')
+        .replace(/\s*style="[^"]*"/gi, '');
+      const markdown = turndown.turndown(cleanHtml).trim();
+      const textarea = e.target;
+      const start = textarea.selectionStart ?? content.length;
+      const end = textarea.selectionEnd ?? content.length;
+      setContent(content.slice(0, start) + markdown + content.slice(end));
+    } else if (hasCssArtifact) {
+      // Plain text with CSS artifacts — strip them
+      e.preventDefault();
+      const cleaned = plain
+        .replace(/p\.p\d+\s*\{[^}]*\}/g, '')
+        .replace(/span\.s\d+\s*\{[^}]*\}/g, '')
+        .replace(/\s*class="[^"]*"/g, '')
+        .trim();
+      const textarea = e.target;
+      const start = textarea.selectionStart ?? content.length;
+      const end = textarea.selectionEnd ?? content.length;
+      setContent(content.slice(0, start) + cleaned + content.slice(end));
+    }
+    // else: normal plain text paste — let the editor handle it
   };
 
   return (
