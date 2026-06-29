@@ -318,21 +318,22 @@ function BulkUploadForm({ onDone }) {
   return (
     <div className="space-y-4">
       <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-2">
-        <p className="font-semibold text-gray-800">CSV Format (required columns):</p>
+        <p className="font-semibold text-gray-800">Supported formats: CSV, XLSX, XLS</p>
+        <p className="text-xs text-gray-500">Required columns (first row must be headers):</p>
         <code className="block text-xs bg-white p-2 rounded border border-gray-200 overflow-x-auto">
           name, calories, protein, carbs, fat, dietType, category
         </code>
-        <p className="text-xs text-gray-500">Optional: fiber, sugar, servingSize, servingUnit, description, imageUrl</p>
+        <p className="text-xs text-gray-500">Optional: fiber (or fibre), sugar, servingSize, servingUnit, description, imageUrl</p>
         <p className="text-xs text-gray-500">• dietType: <code>veg</code> | <code>non-veg</code> | <code>vegan</code></p>
         <p className="text-xs text-gray-500">• category: <code>breakfast</code> | <code>lunch</code> | <code>dinner</code> | <code>snacks</code></p>
         <p className="text-xs text-gray-500">• Duplicate names are updated (upsert), not duplicated.</p>
-        <p className="text-xs text-gray-500">• Save your Excel as CSV (UTF-8) before uploading.</p>
+        <p className="text-xs text-gray-500">• Excel files use the first sheet only.</p>
       </div>
       <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
         <FileSpreadsheet size={32} className="mx-auto text-gray-300 mb-2" />
         <input
           type="file"
-          accept=".csv,.txt"
+          accept=".csv,.xlsx,.xls"
           onChange={(e) => setFile(e.target.files[0])}
           className="text-sm text-gray-500"
         />
