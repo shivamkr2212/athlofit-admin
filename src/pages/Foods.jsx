@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { Plus, Edit2, Trash2, Search, Upload, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
@@ -8,6 +8,7 @@ import Pagination from '../components/ui/Pagination';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import EmptyState from '../components/ui/EmptyState';
+import ImageUploader from '../components/ui/ImageUploader';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -178,7 +179,7 @@ export default function Foods() {
 }
 
 function FoodForm({ food, onSubmit, loading }) {
-  const { register, handleSubmit } = useForm({
+  const { register, handleSubmit, control } = useForm({
     defaultValues: food ? {
       name: food.name, description: food.description || '', calories: food.calories,
       protein: food.protein, carbs: food.carbs, fat: food.fat, fiber: food.fiber || '',
@@ -252,8 +253,18 @@ function FoodForm({ food, onSubmit, loading }) {
         <input className="input" {...register('description')} />
       </div>
       <div>
-        <label className="label">Image URL (optional)</label>
-        <input className="input" {...register('imageUrl')} placeholder="https://..." />
+        <Controller
+          control={control}
+          name="imageUrl"
+          render={({ field }) => (
+            <ImageUploader
+              label="Food Image (optional)"
+              folder="misc"
+              value={field.value || ''}
+              onChange={field.onChange}
+            />
+          )}
+        />
       </div>
       <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
         {loading ? 'Saving…' : food ? 'Update Food' : 'Create Food'}
