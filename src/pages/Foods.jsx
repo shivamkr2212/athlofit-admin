@@ -236,7 +236,7 @@ function FoodForm({ food, onSubmit, loading }) {
           <select className="input" {...register('dietType', { required: true })}>
             <option value="">Select</option>
             <option value="veg">Veg</option>
-            <option value="vegetarian">Vegetarian</option>
+            <option value="eggetarian">Eggetarian</option>
             <option value="non-veg">Non-Veg</option>
             <option value="vegan">Vegan</option>
           </select>
