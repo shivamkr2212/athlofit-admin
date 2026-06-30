@@ -130,7 +130,7 @@ export default function Foods() {
                       <td className="table-td">{f.fat}g</td>
                       <td className="table-td">{f.servingSize}{f.servingUnit}</td>
                       <td className="table-td"><span className="badge bg-gray-100 text-gray-600 text-xs">{f.dietType}</span></td>
-                      <td className="table-td capitalize text-xs text-gray-500">{f.category}</td>
+                      <td className="table-td capitalize text-xs text-gray-500">{Array.isArray(f.category) ? f.category.join(', ') : f.category}</td>
                       <td className="table-td">
                         <button onClick={() => toggleMutation.mutate(f._id)} className="p-1">
                           {f.isActive ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}
@@ -184,8 +184,9 @@ function FoodForm({ food, onSubmit, loading }) {
       name: food.name, description: food.description || '', calories: food.calories,
       protein: food.protein, carbs: food.carbs, fat: food.fat, fiber: food.fiber || '',
       sugar: food.sugar || '', servingSize: food.servingSize, servingUnit: food.servingUnit,
-      dietType: food.dietType, category: food.category, imageUrl: food.imageUrl || '',
-    } : { servingSize: 100, servingUnit: 'g' },
+      dietType: food.dietType, category: Array.isArray(food.category) ? food.category : [food.category].filter(Boolean),
+      imageUrl: food.imageUrl || '',
+    } : { servingSize: 100, servingUnit: 'g', category: [] },
   });
 
   const submit = (data) => {
@@ -198,6 +199,7 @@ function FoodForm({ food, onSubmit, loading }) {
       fiber: data.fiber ? Number(data.fiber) : null,
       sugar: data.sugar ? Number(data.sugar) : null,
       servingSize: Number(data.servingSize),
+      category: Array.isArray(data.category) ? data.category : [data.category].filter(Boolean),
     });
   };
 
@@ -222,6 +224,7 @@ function FoodForm({ food, onSubmit, loading }) {
           <select className="input" {...register('servingUnit', { required: true })}>
             <option value="g">g</option>
             <option value="ml">ml</option>
+            <option value="tbsp">tbsp (tablespoon)</option>
             <option value="serving">serving</option>
             <option value="piece">piece</option>
           </select>
@@ -233,19 +236,21 @@ function FoodForm({ food, onSubmit, loading }) {
           <select className="input" {...register('dietType', { required: true })}>
             <option value="">Select</option>
             <option value="veg">Veg</option>
+            <option value="vegetarian">Vegetarian</option>
             <option value="non-veg">Non-Veg</option>
             <option value="vegan">Vegan</option>
           </select>
         </div>
         <div>
-          <label className="label">Meal Category *</label>
-          <select className="input" {...register('category', { required: true })}>
-            <option value="">Select</option>
-            <option value="breakfast">Breakfast</option>
-            <option value="lunch">Lunch</option>
-            <option value="dinner">Dinner</option>
-            <option value="snacks">Snacks</option>
-          </select>
+          <label className="label">Meal Category * (select multiple)</label>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            {['breakfast', 'lunch', 'dinner', 'snacks'].map((cat) => (
+              <label key={cat} className="flex items-center gap-2 text-sm text-gray-700 capitalize">
+                <input type="checkbox" value={cat} {...register('category', { required: true })} className="w-4 h-4 rounded accent-primary-600" />
+                {cat}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
       <div>
