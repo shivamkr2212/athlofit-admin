@@ -201,6 +201,32 @@ export default function AppConfig() {
             </p>
           </Section>
 
+          {/* Notification Templates */}
+          <Section title="🔔 Notification Messages">
+            <p className="text-xs text-gray-500 -mt-1">
+              Customize push notification text. Use {'{{'}variables{'}}'}:  orderId, coins, goal, name, streak, badge
+            </p>
+            <div className="space-y-3">
+              {[
+                ['notifications.orderConfirmed.title', 'Order Confirmed — Title', '🛍️ Order Confirmed!'],
+                ['notifications.orderConfirmed.message', 'Order Confirmed — Message', 'Your order #{{orderId}} has been placed successfully.'],
+                ['notifications.orderCancelled.title', 'Order Cancelled — Title', '❌ Order Cancelled'],
+                ['notifications.orderCancelled.message', 'Order Cancelled — Message', 'Order #{{orderId}} cancelled. {{coins}} coins refunded.'],
+                ['notifications.stepGoalReached.title', 'Step Goal — Title', '🎯 Daily Step Goal Reached!'],
+                ['notifications.stepGoalReached.message', 'Step Goal — Message', 'You hit your {{goal}} step goal and earned {{coins}} coins!'],
+                ['notifications.streakBroken.title', 'Streak Broken — Title', '💪 Start fresh!'],
+                ['notifications.streakBroken.message', 'Streak Broken — Message', 'Your streak ended, but every step counts.'],
+                ['notifications.challengeComplete.title', 'Challenge — Title', '🎉 Challenge Complete!'],
+                ['notifications.challengeComplete.message', 'Challenge — Message', 'You completed "{{name}}" and earned {{coins}} coins!'],
+              ].map(([name, label, placeholder]) => (
+                <div key={name}>
+                  <label className="label text-xs">{label}</label>
+                  <input className="input text-sm" placeholder={placeholder} {...register(name)} />
+                </div>
+              ))}
+            </div>
+          </Section>
+
           {/* Features */}
           <Section title="🚀 Feature Flags">
             <div className="grid grid-cols-2 gap-3">
