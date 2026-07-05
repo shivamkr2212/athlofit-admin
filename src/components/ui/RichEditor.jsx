@@ -24,12 +24,26 @@ const FORMATS = [
  * Used for legal documents and any content that needs to be served as HTML to the mobile app.
  */
 export default function RichEditor({ value, onChange }) {
+  // Clean Quill output: remove empty paragraphs and trailing nbsp
+  const handleChange = (html) => {
+    let cleaned = html || '';
+    // Remove empty paragraphs that Quill inserts (<p><br></p>)
+    cleaned = cleaned.replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '');
+    // Remove trailing &nbsp; before closing tags
+    cleaned = cleaned.replace(/(&nbsp;\s*)+<\/(p|li|h[1-6]|div)>/gi, '</$2>');
+    // Remove standalone &nbsp; lines
+    cleaned = cleaned.replace(/<p>\s*(&nbsp;\s*)+<\/p>/gi, '');
+    // Collapse multiple <br> into one
+    cleaned = cleaned.replace(/(<br\s*\/?>){3,}/gi, '<br><br>');
+    onChange(cleaned);
+  };
+
   return (
     <div className="rich-editor-wrapper">
       <ReactQuill
         theme="snow"
         value={value || ''}
-        onChange={onChange}
+        onChange={handleChange}
         modules={{ toolbar: TOOLBAR }}
         formats={FORMATS}
         placeholder="Start writing… use the toolbar for headings, bold, lists, links, etc."
