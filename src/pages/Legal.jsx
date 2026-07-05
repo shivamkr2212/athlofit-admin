@@ -1,19 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, FileText } from 'lucide-react';
-import MDEditor from '@uiw/react-md-editor';
-import TurndownService from 'turndown';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
 import { configService } from '../services/config.service';
 import toast from 'react-hot-toast';
 
-// Converts pasted rich-text/HTML (e.g. from a PDF or Word) into Markdown.
-const turndown = new TurndownService({
-  headingStyle: 'atx',
-  bulletListMarker: '-',
-  codeBlockStyle: 'fenced',
-});
+// Lazy-load Quill to keep it out of the main bundle
+const RichEditor = lazy(() => import('../components/ui/RichEditor'));
 
 // All legal document types (must match backend LegalContent enum).
 const LEGAL_TYPES = [
@@ -60,48 +54,9 @@ export default function Legal() {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
 
-  // Intercept paste: if the clipboard holds rich text/HTML (from a PDF, Word, web
-  // page, etc.) convert it to Markdown so formatting like headings, bold and lists
-  // is preserved instead of being flattened into a plain paragraph.
-  // Also strips PDF-style CSS blocks that macOS Preview/Word inject.
-  const handlePaste = (e) => {
-    const html = e.clipboardData?.getData('text/html');
-    const plain = e.clipboardData?.getData('text/plain') || '';
-
-    // Detect PDF-style CSS in plain text paste (p.p1 { ... } pattern)
-    const hasCssArtifact = /p\.p\d+\s*\{[^}]+\}/i.test(plain) || /<style/i.test(plain);
-
-    if (html) {
-      e.preventDefault();
-      // Strip <style> blocks from the HTML before converting
-      const cleanHtml = html
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/\s*class="[^"]*"/gi, '')
-        .replace(/\s*style="[^"]*"/gi, '');
-      const markdown = turndown.turndown(cleanHtml).trim();
-      const textarea = e.target;
-      const start = textarea.selectionStart ?? content.length;
-      const end = textarea.selectionEnd ?? content.length;
-      setContent(content.slice(0, start) + markdown + content.slice(end));
-    } else if (hasCssArtifact) {
-      // Plain text with CSS artifacts — strip them
-      e.preventDefault();
-      const cleaned = plain
-        .replace(/p\.p\d+\s*\{[^}]*\}/g, '')
-        .replace(/span\.s\d+\s*\{[^}]*\}/g, '')
-        .replace(/\s*class="[^"]*"/g, '')
-        .trim();
-      const textarea = e.target;
-      const start = textarea.selectionStart ?? content.length;
-      const end = textarea.selectionEnd ?? content.length;
-      setContent(content.slice(0, start) + cleaned + content.slice(end));
-    }
-    // else: normal plain text paste — let the editor handle it
-  };
-
   return (
     <div>
-      <Header title="Legal & Policies" subtitle="Manage all legal documents shown on the website" />
+      <Header title="Legal & Policies" subtitle="Manage all legal documents shown on the website & app" />
       <div className="p-6 space-y-4">
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl flex-wrap">
@@ -136,27 +91,18 @@ export default function Legal() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <input type="checkbox" id="legalPublished" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} className="w-4 h-4 rounded accent-primary-600" />
-                <label htmlFor="legalPublished" className="text-sm text-gray-700">Published (visible on website)</label>
+                <label htmlFor="legalPublished" className="text-sm text-gray-700">Published (visible on website & app)</label>
               </div>
               <div className="text-xs text-gray-400 flex items-center gap-1">
-                <FileText size={14} /> Supports Markdown + HTML formatting
+                <FileText size={14} /> Saves as HTML
               </div>
             </div>
 
             <div>
-              <label className="label">Content (Markdown + HTML)</label>
-              <div data-color-mode="light">
-                <MDEditor
-                  value={content}
-                  onChange={(val) => setContent(val || '')}
-                  height={500}
-                  preview="live"
-                  textareaProps={{
-                    placeholder: '# Title\n\nContent here…',
-                    onPaste: handlePaste,
-                  }}
-                />
-              </div>
+              <label className="label">Content (Rich Text → HTML)</label>
+              <Suspense fallback={<div className="flex justify-center py-8"><Spinner size="lg" /></div>}>
+                <RichEditor value={content} onChange={setContent} />
+              </Suspense>
             </div>
 
             <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !content} className="btn-primary">

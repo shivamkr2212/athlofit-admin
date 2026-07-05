@@ -19,6 +19,7 @@
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.76.1",
     "react-hot-toast": "^2.6.0",
+    "react-quill-new": "^3.8.3",
     "react-router-dom": "^6.30.3",
     "recharts": "^3.8.1",
     "turndown": "^7.2.4"
