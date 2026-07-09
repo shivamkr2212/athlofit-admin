@@ -159,7 +159,7 @@ export default function AppConfig() {
             </p>
             <div className="grid grid-cols-2 gap-4">
               <Field
-                label="Coins per 100 steps (passive, ≤ 1.0)"
+                label="Coins per 100 steps (passive)"
                 name="coin_config.steps.rate_per_100_steps"
                 type="number"
                 register={register}

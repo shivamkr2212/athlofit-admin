@@ -24,15 +24,15 @@ const FORMATS = [
  * Used for legal documents and any content that needs to be served as HTML to the mobile app.
  */
 export default function RichEditor({ value, onChange }) {
-  // Clean Quill output: remove empty paragraphs and trailing nbsp
+  // Clean Quill output: remove empty paragraphs, fix PDF paste artifacts
   const handleChange = (html) => {
     let cleaned = html || '';
+    // Replace &nbsp; with normal spaces (PDF paste encodes all spaces as nbsp)
+    cleaned = cleaned.replace(/&nbsp;/g, ' ');
     // Remove empty paragraphs that Quill inserts (<p><br></p>)
     cleaned = cleaned.replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '');
-    // Remove trailing &nbsp; before closing tags
-    cleaned = cleaned.replace(/(&nbsp;\s*)+<\/(p|li|h[1-6]|div)>/gi, '</$2>');
-    // Remove standalone &nbsp; lines
-    cleaned = cleaned.replace(/<p>\s*(&nbsp;\s*)+<\/p>/gi, '');
+    // Remove empty paragraphs
+    cleaned = cleaned.replace(/<p>\s*<\/p>/gi, '');
     // Collapse multiple <br> into one
     cleaned = cleaned.replace(/(<br\s*\/?>){3,}/gi, '<br><br>');
     onChange(cleaned);
