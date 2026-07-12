@@ -129,7 +129,7 @@ export default function Foods() {
                       <td className="table-td">{f.carbs}g</td>
                       <td className="table-td">{f.fat}g</td>
                       <td className="table-td">{f.servingSize}{f.servingUnit}</td>
-                      <td className="table-td"><span className="badge bg-gray-100 text-gray-600 text-xs">{f.dietType}</span></td>
+                      <td className="table-td"><span className="badge bg-gray-100 text-gray-600 text-xs">{Array.isArray(f.dietType) ? f.dietType.join(', ') : f.dietType}</span></td>
                       <td className="table-td capitalize text-xs text-gray-500">{Array.isArray(f.category) ? f.category.join(', ') : f.category}</td>
                       <td className="table-td">
                         <button onClick={() => toggleMutation.mutate(f._id)} className="p-1">
@@ -184,9 +184,9 @@ function FoodForm({ food, onSubmit, loading }) {
       name: food.name, description: food.description || '', calories: food.calories,
       protein: food.protein, carbs: food.carbs, fat: food.fat, fiber: food.fiber || '',
       sugar: food.sugar || '', servingSize: food.servingSize, servingUnit: food.servingUnit,
-      dietType: food.dietType, category: Array.isArray(food.category) ? food.category : [food.category].filter(Boolean),
+      dietType: Array.isArray(food.dietType) ? food.dietType : [food.dietType].filter(Boolean), category: Array.isArray(food.category) ? food.category : [food.category].filter(Boolean),
       imageUrl: food.imageUrl || '',
-    } : { servingSize: 100, servingUnit: 'g', category: [] },
+    } : { servingSize: 100, servingUnit: 'g', dietType: [], category: [] },
   });
 
   const submit = (data) => {
@@ -199,6 +199,7 @@ function FoodForm({ food, onSubmit, loading }) {
       fiber: data.fiber ? Number(data.fiber) : null,
       sugar: data.sugar ? Number(data.sugar) : null,
       servingSize: Number(data.servingSize),
+      dietType: Array.isArray(data.dietType) ? data.dietType : [data.dietType].filter(Boolean),
       category: Array.isArray(data.category) ? data.category : [data.category].filter(Boolean),
     });
   };
@@ -232,14 +233,15 @@ function FoodForm({ food, onSubmit, loading }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Diet Type *</label>
-          <select className="input" {...register('dietType', { required: true })}>
-            <option value="">Select</option>
-            <option value="veg">Veg</option>
-            <option value="eggetarian">Eggetarian</option>
-            <option value="non-veg">Non-Veg</option>
-            <option value="vegan">Vegan</option>
-          </select>
+          <label className="label">Diet Type * (select multiple)</label>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            {['veg', 'vegetarian', 'eggetarian', 'non-veg', 'vegan'].map((d) => (
+              <label key={d} className="flex items-center gap-2 text-sm text-gray-700 capitalize">
+                <input type="checkbox" value={d} {...register('dietType', { required: true })} className="w-4 h-4 rounded accent-primary-600" />
+                {d}
+              </label>
+            ))}
+          </div>
         </div>
         <div>
           <label className="label">Meal Category * (select multiple)</label>
