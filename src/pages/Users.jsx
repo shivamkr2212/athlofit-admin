@@ -244,6 +244,7 @@ function UserDetailView({ user, detail }) {
     { key: 'activity', label: 'Steps & Activity', icon: Footprints },
     { key: 'analytics', label: 'Analytics', icon: BarChart3 },
     { key: 'gamification', label: 'Coins & Badges', icon: Trophy },
+    { key: 'ledger', label: 'Coin Ledger', icon: History },
     { key: 'achievements', label: 'Achievements', icon: Award },
     { key: 'orders', label: 'Orders', icon: Package },
     { key: 'ai', label: 'AI Insights', icon: Sparkles },
@@ -303,6 +304,7 @@ function UserDetailView({ user, detail }) {
       {tab === 'activity' && <ActivityTab health={health} stepGoal={u.dailyStepGoal} />}
       {tab === 'analytics' && <AnalyticsTab userId={u._id} />}
       {tab === 'gamification' && <GamificationTab gamification={gamification} />}
+      {tab === 'ledger' && <CoinLedgerTab userId={u._id} />}
       {tab === 'achievements' && <AchievementsTab achievements={achievements} />}
       {tab === 'orders' && <OrdersTab orders={orders} />}
       {tab === 'ai' && <AITab userId={u._id} />}
@@ -466,6 +468,141 @@ function GamificationTab({ gamification }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Coin Ledger: every single coin transaction (earn / spend / refund / deduct) ──
+const SOURCE_LABELS = {
+  PASSIVE_STEPS: 'Auto Step Coins',
+  DAILY_STEP_GOAL: 'Daily Step Goal',
+  DAILY_STEP_GOAL_AUTO: 'Daily Step Goal (auto)',
+  HYDRATION_GOAL: 'Hydration Goal',
+  HYDRATION_GOAL_REVERTED: 'Hydration Reverted',
+  STREAK_BADGE: 'Streak Badge',
+  ACHIEVEMENT: 'Achievement',
+  CHALLENGE: 'Challenge',
+  CHALLENGE_REVERTED: 'Challenge Reverted',
+  REFERRAL_BONUS: 'Referral Bonus',
+  SHOP_PURCHASE: 'Shop Purchase',
+  SHOP_REFUND: 'Shop Refund',
+  MANUAL: 'Manual / Admin',
+};
+
+function CoinLedgerTab({ userId }) {
+  const [page, setPage] = useState(1);
+  const [type, setType] = useState('');
+  const limit = 25;
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['user-coin-ledger', userId, page, type],
+    queryFn: async () => {
+      const params = { page, limit };
+      if (type) params.type = type;
+      const res = await api.get(`/admin/users/${userId}/coins`, { params });
+      return res.data?.data;
+    },
+    keepPreviousData: true,
+  });
+
+  const txns = data?.transactions || [];
+  const pg = data?.pagination;
+  const summary = data?.summary;
+
+  const isCredit = (t) => t.type === 'EARNED' || t.type === 'REFUND';
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-green-50 rounded-lg p-3 text-center">
+          <p className="text-xs text-green-600">Total Earned</p>
+          <p className="text-lg font-bold text-green-700">🪙 {(summary?.totalEarned ?? 0).toLocaleString()}</p>
+        </div>
+        <div className="bg-red-50 rounded-lg p-3 text-center">
+          <p className="text-xs text-red-600">Total Spent / Deducted</p>
+          <p className="text-lg font-bold text-red-700">🪙 {(summary?.totalSpent ?? 0).toLocaleString()}</p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-3 text-center">
+          <p className="text-xs text-gray-500">Transactions</p>
+          <p className="text-lg font-bold text-gray-700">{pg?.total ?? 0}</p>
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div className="flex items-center gap-2">
+        <select
+          className="input py-1.5 text-sm w-auto"
+          value={type}
+          onChange={(e) => { setType(e.target.value); setPage(1); }}
+        >
+          <option value="">All types</option>
+          <option value="EARNED">Earned</option>
+          <option value="SPENT">Spent</option>
+          <option value="REFUND">Refund</option>
+          <option value="DEDUCTED">Deducted</option>
+        </select>
+        {isFetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
+      </div>
+
+      {isLoading ? (
+        <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-gray-400" /></div>
+      ) : txns.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-8">No coin transactions recorded.</p>
+      ) : (
+        <div className="overflow-x-auto border border-gray-100 rounded-xl">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs">
+              <tr>
+                <th className="px-3 py-2 text-left">Date</th>
+                <th className="px-3 py-2 text-left">Description</th>
+                <th className="px-3 py-2 text-left">Source</th>
+                <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {txns.map((t) => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 whitespace-nowrap text-gray-500 text-xs">
+                    {format(new Date(t.createdAt), 'dd MMM yyyy, HH:mm')}
+                  </td>
+                  <td className="px-3 py-2 text-gray-800">{t.description}</td>
+                  <td className="px-3 py-2">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px]">
+                      {SOURCE_LABELS[t.source] || t.source}
+                    </span>
+                  </td>
+                  <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${isCredit(t) ? 'text-green-600' : 'text-red-600'}`}>
+                    {isCredit(t) ? '+' : '−'}{t.amount.toLocaleString()} 🪙
+                  </td>
+                  <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">{(t.balanceAfter ?? 0).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {pg && pg.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <button
+            className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <span className="text-xs text-gray-500">Page {pg.page} of {pg.totalPages}</span>
+          <button
+            className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
+            disabled={!pg.hasMore}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }
