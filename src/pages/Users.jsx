@@ -46,6 +46,7 @@ async function fetchUserDetail(id) {
 export default function Users() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -53,8 +54,8 @@ export default function Users() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['users', page, search, roleFilter],
-    queryFn: () => fetchUsers({ page, limit: 20, search, role: roleFilter }),
+    queryKey: ['users', page, limit, search, roleFilter],
+    queryFn: () => fetchUsers({ page, limit, search, role: roleFilter }),
   });
 
   const { data: userDetail, isLoading: detailLoading } = useQuery({
@@ -131,6 +132,7 @@ export default function Users() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="table-th w-12 text-center">#</th>
                     <th className="table-th">User</th>
                     <th className="table-th">Role</th>
                     <th className="table-th">Status</th>
@@ -140,8 +142,11 @@ export default function Users() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {users.map((u) => (
+                  {users.map((u, idx) => (
                     <tr key={u._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="table-td text-center text-xs text-gray-500 font-medium">
+                        {(page - 1) * limit + idx + 1}
+                      </td>
                       <td className="table-td">
                         <div className="flex items-center gap-3">
                           {u.avatarUrl ? (
@@ -202,10 +207,24 @@ export default function Users() {
             </div>
           )}
           {pagination && (
-            <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                Showing {(page - 1) * 20 + 1}–{Math.min(page * 20, pagination.total)} of {pagination.total}
-              </p>
+            <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-gray-500">
+                  Showing {(page - 1) * limit + 1}–{Math.min(page * limit, pagination.total)} of {pagination.total}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400">Rows:</span>
+                  <select
+                    className="input py-1 text-xs w-auto"
+                    value={limit}
+                    onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
               <Pagination page={page} totalPages={pagination.totalPages} onPageChange={setPage} />
             </div>
           )}

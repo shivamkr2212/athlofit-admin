@@ -28,6 +28,10 @@ export default function Blogs() {
   });
 
   const blogs = data?.data?.blogs || [];
+  const [page, setPage] = useState(1);
+  const limit = 25;
+  const totalPages = Math.ceil(blogs.length / limit);
+  const paginatedBlogs = blogs.slice((page - 1) * limit, page * limit);
 
   const { data: editData } = useQuery({
     queryKey: ['admin-blog', editId],
@@ -202,8 +206,9 @@ export default function Blogs() {
           </div>
         ) : (
           <div className="card divide-y">
-            {blogs.map((b) => (
+            {paginatedBlogs.map((b, idx) => (
               <div key={b._id} className="flex items-center gap-4 p-4">
+                <span className="text-xs text-gray-400 w-6 text-center shrink-0">{(page - 1) * limit + idx + 1}</span>
                 <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                   {b.coverImage && <img src={b.coverImage} alt="" className="w-full h-full object-cover" />}
                 </div>
@@ -229,6 +234,28 @@ export default function Blogs() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {blogs.length > limit && (
+          <div className="card px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+            <p className="text-sm text-gray-500">
+              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, blogs.length)} of {blogs.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >Previous</button>
+              <span className="text-xs text-gray-500">Page {page} of {totalPages}</span>
+              <button
+                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >Next</button>
+            </div>
           </div>
         )}
       </div>

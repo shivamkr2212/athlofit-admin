@@ -71,6 +71,7 @@ export default function Coupons() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="table-th w-12 text-center">#</th>
                     <th className="table-th">Code</th>
                     <th className="table-th">Type</th>
                     <th className="table-th">Discount</th>
@@ -81,8 +82,9 @@ export default function Coupons() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {coupons.map((c) => (
+                  {coupons.map((c, idx) => (
                     <tr key={c._id} className="hover:bg-gray-50">
+                      <td className="table-td text-center text-xs text-gray-400">{idx + 1}</td>
                       <td className="table-td">
                         <span className="font-mono font-bold text-primary-700 bg-primary-50 px-2 py-1 rounded">{c.code}</span>
                       </td>
