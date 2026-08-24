@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { Bell, Send } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Spinner from '../components/ui/Spinner';
+import UserSelect from '../components/ui/UserSelect';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -16,7 +17,7 @@ const TARGETS = [
   { value: 'all', label: 'All Users', desc: 'Everyone with a valid FCM token' },
   { value: 'ios', label: 'iOS Only', desc: 'iOS devices only' },
   { value: 'android', label: 'Android Only', desc: 'Android devices only' },
-  { value: 'user', label: 'Single User', desc: 'Requires userId' },
+  { value: 'user', label: 'Single User', desc: 'Search and pick one user' },
   { value: 'streak', label: 'By Streak', desc: 'Users with streak >= streakMin' },
   { value: 'coins', label: 'By Coins', desc: 'Users with coins >= coinsMin' },
   { value: 'gender', label: 'By Gender', desc: 'M / F / O' },
@@ -33,9 +34,10 @@ export default function Notifications() {
     queryFn: fetchScreens,
   });
 
-  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, reset, control, formState: { errors } } = useForm({
     defaultValues: {
       target: 'all',
+      userId: '',
       type: 'GOAL',
       priority: 'high',
       channelId: 'athlofit_push',
@@ -51,7 +53,7 @@ export default function Notifications() {
     onSuccess: (res) => {
       const d = res.data?.data;
       toast.success(`Sent to ${d?.successCount || 0} devices (${d?.failureCount || 0} failed)`);
-      reset({ target: 'all', type: 'GOAL', priority: 'high', channelId: 'athlofit_push', sound: 'default', badge: 1 });
+      reset({ target: 'all', userId: '', type: 'GOAL', priority: 'high', channelId: 'athlofit_push', sound: 'default', badge: 1 });
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to send'),
   });
@@ -145,8 +147,16 @@ export default function Notifications() {
               {/* Conditional target fields */}
               {target === 'user' && (
                 <div>
-                  <label className="label">User ID *</label>
-                  <input className="input font-mono" placeholder="MongoDB ObjectId" {...register('userId', { required: target === 'user' })} />
+                  <label className="label">User *</label>
+                  <Controller
+                    name="userId"
+                    control={control}
+                    rules={{ validate: (v) => target !== 'user' || !!v || 'Select a user' }}
+                    render={({ field }) => (
+                      <UserSelect value={field.value} onChange={field.onChange} />
+                    )}
+                  />
+                  {errors.userId && <p className="text-xs text-red-500 mt-1">{errors.userId.message}</p>}
                 </div>
               )}
               {target === 'streak' && (
