@@ -77,6 +77,14 @@ export const usersService = {
     return res.data;
   },
 
+  // "Why does this user show 0 steps?" — device telemetry, the gates, today's
+  // row and the sync trail, joined server-side into a single verdict. See
+  // GET /admin/users/:id/step-diagnostics.
+  getStepDiagnostics: async (id) => {
+    const res = await api.get(`/admin/users/${id}/step-diagnostics`);
+    return res.data;
+  },
+
   getUserGamification: async (id) => {
     const res = await api.get(`/admin/users/${id}/gamification`);
     return res.data;

@@ -320,7 +320,7 @@ function UserDetailView({ user, detail }) {
 
       {/* Tab content */}
       {tab === 'profile' && <ProfileTab u={u} />}
-      {tab === 'activity' && <ActivityTab health={health} stepGoal={u.dailyStepGoal} />}
+      {tab === 'activity' && <ActivityTab health={health} stepGoal={u.dailyStepGoal} userId={u._id} />}
       {tab === 'analytics' && <AnalyticsTab userId={u._id} />}
       {tab === 'gamification' && <GamificationTab gamification={gamification} />}
       {tab === 'ledger' && <CoinLedgerTab userId={u._id} />}
@@ -377,16 +377,348 @@ function ProfileTab({ u }) {
   );
 }
 
-function ActivityTab({ health, stepGoal }) {
+// ─── "Why does this user show 0 steps?" ──────────────────────────────────────
+//
+// A 0 in the steps column has at least five causes that look identical from
+// here: the user never opened the app, permission was refused, Health Connect
+// is not connected, syncs are failing, or the app has steps that never reached
+// us. The server joins the evidence and returns one verdict; this renders it.
+//
+// Deliberately shown ABOVE the step table, including when there IS data — a
+// clamped or rejected sync matters just as much on an account that looks busy.
+
+/** Verdict codes that mean "nothing is wrong", so the panel stays quiet. */
+const HEALTHY_VERDICTS = new Set(['HEALTHY', 'HEALTHY_NO_TELEMETRY']);
+
+/** Codes the admin, not the user, has to act on. */
+const ADMIN_ACTION_VERDICTS = new Set(['STEPS_DISABLED_BY_ADMIN', 'BUILD_BLOCKED']);
+
+function verdictTone(code) {
+  if (HEALTHY_VERDICTS.has(code)) return 'green';
+  if (ADMIN_ACTION_VERDICTS.has(code)) return 'blue';
+  return 'amber';
+}
+
+const TONE_STYLES = {
+  green: { box: 'bg-green-50 border-green-200', text: 'text-green-800', icon: CheckCircle, iconColor: 'text-green-600' },
+  blue: { box: 'bg-blue-50 border-blue-200', text: 'text-blue-800', icon: Shield, iconColor: 'text-blue-600' },
+  amber: { box: 'bg-amber-50 border-amber-200', text: 'text-amber-900', icon: AlertTriangle, iconColor: 'text-amber-600' },
+};
+
+function DiagRow({ label, value, hint, muted }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <span className="text-xs text-gray-400 shrink-0">{label}</span>
+      <span className={`text-xs text-right ${muted ? 'text-gray-400 italic' : 'text-gray-800 font-medium'}`}>
+        {value}
+        {hint && <span className="block text-[11px] text-gray-400 font-normal">{hint}</span>}
+      </span>
+    </div>
+  );
+}
+
+const fmtWhen = (v) => {
+  if (!v) return null;
+  try {
+    return format(new Date(v), 'dd MMM, HH:mm');
+  } catch {
+    return null;
+  }
+};
+
+/** A reported enum, rendered so "not reported" never looks like a finding. */
+function reportedValue(v) {
+  if (v === null || v === undefined) return { value: 'not reported', muted: true };
+  if (v === true) return { value: 'yes' };
+  if (v === false) return { value: 'no' };
+  return { value: String(v).replace(/_/g, ' ') };
+}
+
+function StepDiagnosticsPanel({ userId }) {
+  const { data, isLoading, isError, error: diagError } = useQuery({
+    queryKey: ['user-step-diagnostics', userId],
+    queryFn: async () => (await usersService.getStepDiagnostics(userId))?.data,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+        <Loader2 size={14} className="animate-spin" /> Checking the step pipeline…
+      </div>
+    );
+  }
+
+  // Say so rather than rendering nothing. This panel returning null on failure
+  // is indistinguishable from the feature not existing, and the most likely
+  // failure by far is a backend that has not been deployed with the endpoint
+  // yet — which an admin would otherwise spend an afternoon not diagnosing.
+  if (isError || !data) {
+    const status = diagError?.response?.status;
+    return (
+      <div className="border border-gray-200 bg-gray-50 rounded-xl p-3">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={15} className="text-gray-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-gray-700">
+              Step diagnostics unavailable
+            </p>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {status === 404
+                ? 'The backend does not have GET /admin/users/:id/step-diagnostics — it is running a build from before this feature shipped.'
+                : status
+                  ? `The diagnostics request failed (HTTP ${status}).`
+                  : 'Could not reach the diagnostics endpoint.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { verdict, activity, device, gates, steps, stepSource, syncTrail, deviceReported, notCaptured } = data;
+  const tone = TONE_STYLES[verdictTone(verdict?.code)];
+  const ToneIcon = tone.icon;
+
+  return (
+    <div className="space-y-3">
+      {/* The verdict — the one line a support reply is written from. */}
+      <div className={`border rounded-xl p-3 ${tone.box}`}>
+        <div className="flex items-start gap-2">
+          <ToneIcon size={16} className={`${tone.iconColor} mt-0.5 shrink-0`} />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className={`text-sm font-semibold ${tone.text}`}>{verdict?.label}</p>
+              {/* Whether this was reported by the device or deduced by us.
+                  An admin acting on "permission denied" needs to know which. */}
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  verdict?.source === 'device'
+                    ? 'bg-white/70 text-gray-700'
+                    : 'bg-white/50 text-gray-500'
+                }`}
+                title={
+                  verdict?.source === 'device'
+                    ? 'Reported by the app itself'
+                    : 'Deduced from what the server observed'
+                }
+              >
+                {verdict?.source === 'device' ? 'reported by app' : 'inferred'}
+              </span>
+            </div>
+            <p className={`text-xs mt-0.5 ${tone.text} opacity-80`}>{verdict?.detail}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0 border border-gray-100 rounded-xl p-3">
+        <div className="divide-y divide-gray-50">
+          <DiagRow
+            label="Last active"
+            value={fmtWhen(activity?.lastActiveAt) || 'never'}
+            hint={
+              activity?.hoursSinceActive != null
+                ? `${activity.hoursSinceActive}h ago · any request, background syncs included`
+                : undefined
+            }
+            muted={!activity?.lastActiveAt}
+          />
+          <DiagRow label="Last login" value={fmtWhen(activity?.lastLoginAt) || 'never'} muted={!activity?.lastLoginAt} />
+          <DiagRow
+            label="Last step sync"
+            value={fmtWhen(steps?.lastRowAnyKind?.lastSyncAt) || '—'}
+            hint={steps?.lastRowAnyKind?.date ? `for ${steps.lastRowAnyKind.date}` : undefined}
+            muted={!steps?.lastRowAnyKind?.lastSyncAt}
+          />
+          <DiagRow
+            label="Last steps received"
+            value={
+              steps?.lastRowWithSteps
+                ? `${steps.lastRowWithSteps.steps?.toLocaleString()} on ${steps.lastRowWithSteps.date}`
+                : 'never'
+            }
+            hint={
+              steps?.lastRowWithSteps?.daysAgo != null
+                ? `${steps.lastRowWithSteps.daysAgo} day(s) ago`
+                : undefined
+            }
+            muted={!steps?.lastRowWithSteps}
+          />
+          <DiagRow
+            label="Today's steps (our system)"
+            value={`${(steps?.today?.steps ?? 0).toLocaleString()}`}
+            hint={
+              steps?.today?.appPostedButNoSteps
+                ? 'app posted today but sent no steps'
+                : steps?.today?.date
+            }
+          />
+          <DiagRow
+            label="Step source"
+            value={
+              stepSource?.origins?.length
+                ? stepSource.origins.map((o) => o.packageName).join(', ')
+                : stepSource?.readers?.join(', ') || 'no attribution recorded'
+            }
+            hint={stepSource?.asOfDate ? `as of ${stepSource.asOfDate}` : undefined}
+            muted={!stepSource}
+          />
+        </div>
+
+        <div className="divide-y divide-gray-50">
+          <DiagRow
+            label="App version"
+            value={device?.appVersion || 'never reported'}
+            hint={device?.buildNumber ? `build ${device.buildNumber}` : undefined}
+            muted={!device?.appVersion}
+          />
+          <DiagRow
+            label="Device"
+            value={[device?.manufacturer, device?.model].filter(Boolean).join(' ') || 'unknown'}
+            hint={
+              device?.osVersion
+                ? `${device.platform === 'ios' ? 'iOS' : 'Android'} ${device.osVersion}`
+                : undefined
+            }
+            muted={!device?.model}
+          />
+          <DiagRow
+            label="Step permission"
+            {...reportedValue(deviceReported?.permissions?.activityRecognition)}
+          />
+          <DiagRow
+            label="Health Connect"
+            {...reportedValue(
+              deviceReported?.healthConnect?.availability ??
+                deviceReported?.permissions?.healthConnect,
+            )}
+            hint={
+              deviceReported?.healthConnect?.hasStepWriter === false
+                ? 'no app is writing steps'
+                : undefined
+            }
+          />
+          <DiagRow
+            label="Steps on device"
+            {...(deviceReported?.localSteps?.today != null
+              ? {
+                  value: deviceReported.localSteps.today.toLocaleString(),
+                  hint:
+                    deviceReported.localSteps.matchesServer === false
+                      ? "doesn't match our total"
+                      : deviceReported.localSteps.matchesServer === true
+                        ? 'matches our total'
+                        : undefined,
+                }
+              : { value: 'not reported', muted: true })}
+          />
+          <DiagRow
+            label="Last sync error"
+            {...(syncTrail?.rejectedCount
+              ? { value: `${syncTrail.rejectedCount} rejected by server` }
+              : deviceReported?.lastSyncAttempt?.ok === false
+                ? { value: deviceReported.lastSyncAttempt.error || 'failed on device' }
+                : syncTrail?.clampedCount
+                  ? { value: `${syncTrail.clampedCount} clamped` }
+                  : { value: 'none recorded', muted: true })}
+          />
+        </div>
+      </div>
+
+      {/* Gates the admin controls, surfaced only when one is actually on. */}
+      {(gates?.stepsTracking?.enabled === false ||
+        gates?.buildGate?.blocked ||
+        gates?.coinBlocked?.blocked) && (
+        <div className="flex flex-wrap gap-2">
+          {gates.stepsTracking?.enabled === false && (
+            <span className="text-[11px] bg-red-50 text-red-700 px-2 py-1 rounded">
+              Step tracking OFF{gates.stepsTracking.reason ? ` — ${gates.stepsTracking.reason}` : ''}
+            </span>
+          )}
+          {gates.buildGate?.blocked && (
+            <span className="text-[11px] bg-red-50 text-red-700 px-2 py-1 rounded">
+              Build blocked ({gates.buildGate.rule})
+            </span>
+          )}
+          {gates.coinBlocked?.blocked && (
+            <span className="text-[11px] bg-red-50 text-red-700 px-2 py-1 rounded">
+              Coins blocked until {fmtWhen(gates.coinBlocked.until)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Recent sync problems, newest first. Empty is not the same as healthy —
+          only anomalous syncs are stored, and they expire after 7 days. */}
+      {syncTrail?.recentIssues?.length > 0 && (
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-3 py-1.5 font-medium text-gray-500">When</th>
+                <th className="text-left px-3 py-1.5 font-medium text-gray-500">Issue</th>
+                <th className="text-right px-3 py-1.5 font-medium text-gray-500">Sent → Kept</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {syncTrail.recentIssues.slice(0, 5).map((l, i) => (
+                <tr key={i}>
+                  <td className="px-3 py-1.5 text-gray-500">{fmtWhen(l.at)}</td>
+                  <td className="px-3 py-1.5 text-gray-700">
+                    {l.logReason}
+                    {l.reason && <span className="text-gray-400"> — {l.reason}</span>}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-gray-600">
+                    {l.incomingSteps?.toLocaleString()} → {l.clampedSteps?.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Why a field above says "not reported". Without this, a blank reads as
+          a bug in the panel rather than as a build that does not report yet. */}
+      {notCaptured?.length > 0 && (
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          Permission and Health Connect status are blank because this build does not post{' '}
+          <code className="text-gray-500">/health/device-status</code> yet. Until it does, the
+          server can only see that nothing arrived — never why.
+        </p>
+      )}
+      {deviceReported?.stale && (
+        <p className="text-[11px] text-amber-600">
+          Device status last reported {fmtWhen(deviceReported.reportedAt)} — over 48h old, so it may
+          no longer reflect the phone.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ActivityTab({ health, stepGoal, userId }) {
   const days = health?.days || [];
   const summary = health?.summary;
 
+  // Rendered before the early return: an account with no activity at all is
+  // exactly the case the diagnostics exist to explain, so "no data" must not
+  // hide the reason for it.
+  const diagnostics = <StepDiagnosticsPanel userId={userId} />;
+
   if (!days.length) {
-    return <p className="text-sm text-gray-400 text-center py-8">No activity data recorded yet.</p>;
+    return (
+      <div className="space-y-4">
+        {diagnostics}
+        <p className="text-sm text-gray-400 text-center py-4">No activity data recorded yet.</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
+      {diagnostics}
+
       {/* Summary cards */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
