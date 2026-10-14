@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, ShoppingBag, Package, Coins, TrendingUp, Activity,
-  Trophy, Zap, UserCheck, AlertCircle, ArrowUpRight,
+  Trophy, Zap, UserCheck, AlertCircle, ArrowUpRight, Footprints,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -12,6 +13,7 @@ import Header from '../components/layout/Header';
 import StatCard from '../components/ui/StatCard';
 import Spinner from '../components/ui/Spinner';
 import api from '../lib/api';
+import { dashboardService } from '../services/dashboard.service';
 
 // Fetch aggregated stats from admin endpoints
 async function fetchDashboardData() {
@@ -29,6 +31,116 @@ async function fetchDashboardData() {
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+const MILESTONE_WINDOWS = [
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7 days' },
+  { key: '30d', label: '30 days' },
+];
+
+// Tint per threshold — darker as the milestone gets harder, so the three read
+// as one scale rather than three unrelated numbers.
+const MILESTONE_STYLES = {
+  10000: 'bg-blue-50 text-blue-700 border-blue-100',
+  15000: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  20000: 'bg-violet-50 text-violet-700 border-violet-100',
+};
+
+// ─── Step milestones ─────────────────────────────────────────────────────────
+//
+// Counts users whose BEST SINGLE DAY in the window crossed each threshold.
+// Not the window's total: 10,000 steps spread over 30 days is 333 a day, which
+// is the opposite of what a "10k+ steps" milestone is asking. That also means
+// the windows are not a rate — 7d is always >= today, because a longer window
+// holds more chances to have had one good day. The subtitle says so, since the
+// natural reading of three rising numbers is a trend.
+function StepMilestonesCard() {
+  const [win, setWin] = useState('today');
+  const { data, isLoading, isError, error: milestoneError } = useQuery({
+    queryKey: ['step-milestones', win],
+    queryFn: async () => (await dashboardService.getStepMilestones(win))?.data,
+    retry: false,
+    keepPreviousData: true,
+  });
+
+  const milestones = data?.milestones || [];
+  const activeUsers = data?.activeUsers ?? 0;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Footprints size={16} className="text-gray-400" />
+          <h3 className="font-semibold text-gray-900">Step Milestones</h3>
+        </div>
+        <div className="flex bg-gray-100 rounded-lg p-0.5">
+          {MILESTONE_WINDOWS.map((w) => (
+            <button
+              key={w.key}
+              onClick={() => setWin(w.key)}
+              className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                win === w.key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-400 mb-4">
+        Users whose best single day crossed each mark
+        {data?.from && data?.to && win !== 'today' ? ` · ${data.from} → ${data.to}` : ''}
+      </p>
+
+      {isError ? (
+        <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <AlertCircle size={15} className="text-gray-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-gray-600">
+            {milestoneError?.response?.status === 404
+              ? 'The backend does not have GET /admin/dashboard/step-milestones yet — it is running a build from before this shipped.'
+              : 'Could not load step milestones.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {(isLoading && !milestones.length
+              ? [{ steps: 10000 }, { steps: 15000 }, { steps: 20000 }]
+              : milestones
+            ).map((m) => (
+              <div
+                key={m.steps}
+                className={`border rounded-xl p-3 text-center ${MILESTONE_STYLES[m.steps] || 'bg-gray-50 text-gray-700 border-gray-100'}`}
+              >
+                <p className="text-xs font-medium opacity-70">
+                  {(m.steps / 1000).toLocaleString()}k+ steps
+                </p>
+                <p className="text-2xl font-bold mt-0.5">
+                  {isLoading && m.users === undefined ? '—' : (m.users ?? 0).toLocaleString()}
+                </p>
+                {/* Share of the people who actually walked, not of all
+                    registered users — most of whom did not sync at all. */}
+                <p className="text-[11px] opacity-60 mt-0.5">
+                  {activeUsers > 0 && m.users !== undefined
+                    ? `${Math.round((m.users / activeUsers) * 100)}% of active`
+                    : ' '}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-3">
+            {activeUsers.toLocaleString()} user{activeUsers === 1 ? '' : 's'} logged steps in this
+            window. Longer windows always count more users — each extra day is another chance to
+            have had one big day, so these are not comparable as a rate.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -96,6 +208,9 @@ export default function Dashboard() {
             to="/gamification"
           />
         </div>
+
+        {/* Step milestones */}
+        <StepMilestonesCard />
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
