@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, ShoppingBag, Package, Coins, TrendingUp, Activity,
-  Trophy, Zap, UserCheck, AlertCircle, ArrowUpRight, Footprints,
+  Trophy, Zap, UserCheck, AlertCircle, ArrowUpRight, Footprints, Loader2,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -46,6 +46,97 @@ const MILESTONE_STYLES = {
   20000: 'bg-violet-50 text-violet-700 border-violet-100',
 };
 
+/**
+ * Shown instead of a chart when there is nothing to draw.
+ *
+ * An empty Recharts canvas renders as clean axes with no line, which looks
+ * like a working chart reporting zero. These two states need telling apart:
+ * "the endpoint is missing" and "nobody signed up this week" lead somewhere
+ * completely different.
+ */
+function ChartEmpty({ error }) {
+  return (
+    <div className="h-[220px] flex items-center justify-center text-center px-4">
+      <p className="text-xs text-gray-400 max-w-xs">
+        {error
+          ? 'Could not load this chart. If the backend predates this feature, GET /admin/dashboard/charts does not exist yet.'
+          : 'No data in this period yet.'}
+      </p>
+    </div>
+  );
+}
+
+/** The users behind one milestone tile, revealed on click. */
+function MilestoneUserList({ threshold, window: win }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['step-milestone-users', threshold, win],
+    queryFn: async () => (await dashboardService.getStepMilestoneUsers(threshold, win))?.data,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+        <Loader2 size={13} className="animate-spin" /> Loading users…
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <p className="text-xs text-gray-500 py-3">
+        Could not load the user list. If the backend predates this feature, the endpoint
+        <code className="mx-1 text-gray-400">/admin/dashboard/step-milestones/users</code>
+        does not exist yet.
+      </p>
+    );
+  }
+
+  const users = data?.users || [];
+  if (!users.length) {
+    return <p className="text-xs text-gray-400 py-3">No user crossed {threshold.toLocaleString()} steps in this window.</p>;
+  }
+
+  return (
+    <div className="mt-3 border border-gray-100 rounded-xl overflow-hidden">
+      <div className="max-h-64 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 sticky top-0">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium text-gray-500">User</th>
+              {/* The day that cleared the bar, which is the figure the
+                  threshold was actually tested against. */}
+              <th className="text-right px-3 py-2 font-medium text-gray-500">Best day</th>
+              <th className="text-right px-3 py-2 font-medium text-gray-500">Total steps</th>
+              <th className="text-right px-3 py-2 font-medium text-gray-500">Days</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {users.map((u) => (
+              <tr key={u.id} className="hover:bg-gray-50">
+                <td className="px-3 py-2">
+                  <span className="text-gray-800">{u.name || '—'}</span>
+                  <span className="block text-[11px] text-gray-400">{u.email}</span>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <span className="font-semibold text-gray-900">{u.bestDay?.toLocaleString()}</span>
+                  {u.bestDayOn && <span className="block text-[11px] text-gray-400">{u.bestDayOn}</span>}
+                </td>
+                <td className="px-3 py-2 text-right text-gray-700">{u.totalSteps?.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right text-gray-500">{u.daysActive}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {data?.truncated && (
+        <p className="text-[11px] text-gray-400 px-3 py-1.5 bg-gray-50">
+          Showing the first {users.length} — there are more.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Step milestones ─────────────────────────────────────────────────────────
 //
 // Counts users whose BEST SINGLE DAY in the window crossed each threshold.
@@ -54,8 +145,15 @@ const MILESTONE_STYLES = {
 // the windows are not a rate — 7d is always >= today, because a longer window
 // holds more chances to have had one good day. The subtitle says so, since the
 // natural reading of three rising numbers is a trend.
+//
+// Each tile opens the list of users behind it: a count cannot be acted on
+// without knowing which accounts it is, and whether their figures look like
+// walking.
 function StepMilestonesCard() {
   const [win, setWin] = useState('today');
+  // Which tile is expanded. Null means none; clicking the open one closes it.
+  const [openTile, setOpenTile] = useState(null);
+
   const { data, isLoading, isError, error: milestoneError } = useQuery({
     queryKey: ['step-milestones', win],
     queryFn: async () => (await dashboardService.getStepMilestones(win))?.data,
@@ -110,27 +208,47 @@ function StepMilestonesCard() {
             {(isLoading && !milestones.length
               ? [{ steps: 10000 }, { steps: 15000 }, { steps: 20000 }]
               : milestones
-            ).map((m) => (
-              <div
-                key={m.steps}
-                className={`border rounded-xl p-3 text-center ${MILESTONE_STYLES[m.steps] || 'bg-gray-50 text-gray-700 border-gray-100'}`}
-              >
-                <p className="text-xs font-medium opacity-70">
-                  {(m.steps / 1000).toLocaleString()}k+ steps
-                </p>
-                <p className="text-2xl font-bold mt-0.5">
-                  {isLoading && m.users === undefined ? '—' : (m.users ?? 0).toLocaleString()}
-                </p>
-                {/* Share of the people who actually walked, not of all
-                    registered users — most of whom did not sync at all. */}
-                <p className="text-[11px] opacity-60 mt-0.5">
-                  {activeUsers > 0 && m.users !== undefined
-                    ? `${Math.round((m.users / activeUsers) * 100)}% of active`
-                    : ' '}
-                </p>
-              </div>
-            ))}
+            ).map((m) => {
+              const open = openTile === m.steps;
+              const clickable = (m.users ?? 0) > 0;
+              return (
+                <button
+                  key={m.steps}
+                  type="button"
+                  disabled={!clickable}
+                  onClick={() => setOpenTile(open ? null : m.steps)}
+                  className={`border rounded-xl p-3 text-center transition-all ${
+                    MILESTONE_STYLES[m.steps] || 'bg-gray-50 text-gray-700 border-gray-100'
+                  } ${
+                    clickable
+                      ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5'
+                      : 'cursor-default opacity-70'
+                  } ${open ? 'ring-2 ring-current' : ''}`}
+                >
+                  <p className="text-xs font-medium opacity-70">
+                    {(m.steps / 1000).toLocaleString()}k+ steps
+                  </p>
+                  <p className="text-2xl font-bold mt-0.5">
+                    {isLoading && m.users === undefined ? '—' : (m.users ?? 0).toLocaleString()}
+                  </p>
+                  {/* Share of the people who actually walked, not of all
+                      registered users — most of whom did not sync at all. */}
+                  <p className="text-[11px] opacity-60 mt-0.5">
+                    {activeUsers > 0 && m.users !== undefined
+                      ? `${Math.round((m.users / activeUsers) * 100)}% of active`
+                      : ' '}
+                  </p>
+                  {clickable && (
+                    <p className="text-[10px] opacity-50 mt-1">
+                      {open ? 'hide users' : 'click to see users'}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {openTile != null && <MilestoneUserList threshold={openTile} window={win} />}
           <p className="text-[11px] text-gray-400 mt-3">
             {activeUsers.toLocaleString()} user{activeUsers === 1 ? '' : 's'} logged steps in this
             window. Longer windows always count more users — each extra day is another chance to
@@ -149,23 +267,21 @@ export default function Dashboard() {
     queryFn: fetchDashboardData,
   });
 
-  // Mock chart data (replace with real aggregation endpoints if added)
-  const signupData = [
-    { day: 'Mon', users: 12 }, { day: 'Tue', users: 19 }, { day: 'Wed', users: 8 },
-    { day: 'Thu', users: 25 }, { day: 'Fri', users: 31 }, { day: 'Sat', users: 18 },
-    { day: 'Sun', users: 22 },
-  ];
+  // Real aggregates. These three were hardcoded sample data — "Mon 12, Tue 19",
+  // Jan through Jun, Android 65 / iOS 30 — which read as data for as long as
+  // they were on the page and never moved. A chart that looks real and is not
+  // is worse than no chart.
+  const { data: charts, isError: chartsError } = useQuery({
+    queryKey: ['dashboard-charts'],
+    queryFn: async () => (await dashboardService.getCharts())?.data,
+    retry: false,
+  });
 
-  const orderData = [
-    { month: 'Jan', orders: 45 }, { month: 'Feb', orders: 62 }, { month: 'Mar', orders: 78 },
-    { month: 'Apr', orders: 55 }, { month: 'May', orders: 90 }, { month: 'Jun', orders: 110 },
-  ];
-
-  const platformData = [
-    { name: 'Android', value: 65 },
-    { name: 'iOS', value: 30 },
-    { name: 'Other', value: 5 },
-  ];
+  const signupData = charts?.signups || [];
+  const orderData = charts?.orders || [];
+  // Slices with nobody in them are dropped: a legend entry reading "iOS 0"
+  // takes up as much room as a real one and says less than its absence.
+  const platformData = (charts?.platforms || []).filter((p) => p.value > 0);
 
   const leaderboard = data?.leaderboard?.slice(0, 5) || [];
 
@@ -219,6 +335,7 @@ export default function Dashboard() {
               User Signups (Last 7 Days)
               <ArrowUpRight size={14} className="text-gray-300 group-hover:text-primary-600" />
             </button>
+            {chartsError || !signupData.length ? <ChartEmpty error={chartsError} /> : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={signupData}>
                 <defs>
@@ -234,6 +351,7 @@ export default function Dashboard() {
                 <Area type="monotone" dataKey="users" stroke="#3b82f6" strokeWidth={2} fill="url(#colorUsers)" />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </div>
 
           <div className="card p-5">
@@ -241,6 +359,7 @@ export default function Dashboard() {
               Orders (Last 6 Months)
               <ArrowUpRight size={14} className="text-gray-300 group-hover:text-primary-600" />
             </button>
+            {chartsError || !orderData.length ? <ChartEmpty error={chartsError} /> : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={orderData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -250,6 +369,7 @@ export default function Dashboard() {
                 <Bar dataKey="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -258,6 +378,7 @@ export default function Dashboard() {
           {/* Platform Distribution */}
           <div className="card p-5">
             <h3 className="font-semibold text-gray-900 mb-4">Platform Distribution</h3>
+            {chartsError || !platformData.length ? <ChartEmpty error={chartsError} /> : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={platformData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
@@ -269,6 +390,7 @@ export default function Dashboard() {
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
+            )}
           </div>
 
           {/* Leaderboard */}

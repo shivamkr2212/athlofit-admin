@@ -12,4 +12,19 @@ export const dashboardService = {
     const res = await api.get('/admin/dashboard/step-milestones', { params: { window } });
     return res.data;
   },
+
+  // Who is behind one of those counts, with the day that qualified them.
+  getStepMilestoneUsers: async (threshold, window = 'today') => {
+    const res = await api.get('/admin/dashboard/step-milestones/users', {
+      params: { threshold, window },
+    });
+    return res.data;
+  },
+
+  // Signups, orders and platform split — real aggregates. These three charts
+  // were hardcoded sample data until this endpoint existed.
+  getCharts: async () => {
+    const res = await api.get('/admin/dashboard/charts');
+    return res.data;
+  },
 };
