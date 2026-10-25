@@ -546,11 +546,19 @@ function StepDiagnosticsPanel({ userId }) {
           />
           <DiagRow
             label="Today's steps (our system)"
-            value={`${(steps?.today?.steps ?? 0).toLocaleString()}`}
+            value={
+              steps?.today?.clampedBy > 0
+                ? `${(steps.today.reportedSteps ?? 0).toLocaleString()} walked`
+                : `${(steps?.today?.steps ?? 0).toLocaleString()}`
+            }
             hint={
-              steps?.today?.appPostedButNoSteps
-                ? 'app posted today but sent no steps'
-                : steps?.today?.date
+              // Both numbers, whenever a ceiling bound. "You walked 20,000, we
+              // paid for 15,000" is answerable only with the pair.
+              steps?.today?.clampedBy > 0
+                ? `${steps.today.steps.toLocaleString()} counted for coins · ${steps.today.clampedBy.toLocaleString()} over the anti-cheat ceiling`
+                : steps?.today?.appPostedButNoSteps
+                  ? 'app posted today but sent no steps'
+                  : steps?.today?.date
             }
           />
           <DiagRow
